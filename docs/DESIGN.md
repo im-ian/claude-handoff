@@ -79,6 +79,40 @@ Before any file leaves the device, `push` scans every scoped text file (binaries
 
 **Policy persistence.** `DeviceConfig.secretPolicy.allow: string[]` is a per-device allowlist of relative paths the scanner should not inspect at all — intended for files where a token-shaped string is a deliberate template placeholder, not an actual credential. Additions to this list are manual (edit `~/.claude-handoff/config.json`) rather than auto-remembered from prompts, to avoid "click fatigue" turning into silent allowlist growth.
 
+### Dependency tracking — declared external programs
+
+Hooks (`hooks/hooks.json`) and scripts typically invoke external CLIs (`gh`, `jq`, `clawd`, `rtk`, `node`, etc.). Pulling another device's snapshot doesn't install those binaries, so hooks silently fail at runtime with `command not found`. Three commands address this:
+
+**`handoff doctor`** — read-only diagnosis. Parses `hooks/hooks.json`, extracts each `command` field's executable token, filters against a system-tool allowlist (`bash`, `cat`, `grep`, `sed`, `find`, …), then runs `command -v` for each remaining binary and reports presence. For missing binaries it shows file:line context and cross-references `dependencies.json` to suggest a fix or hint at declaring one. Exit 0 if clean, 1 if missing.
+
+**`handoff bootstrap`** — installs declared deps. Reads `dependencies.json`, picks the install command for the current `process.platform`, skips already-installed binaries via `command -v`, prints the install plan, prompts y/N (or accepts `--yes` for non-TTY), then executes each install with `stdio: 'inherit'` and re-verifies via `command -v`. Reports per-binary success/failure with exit 1 on any failure.
+
+**`handoff deps add <name> --darwin "..." --linux "..."` / `list` / `remove`** — manage `dependencies.json`. Lives at `<hub>/devices/<this>/dependencies.json` alongside `version.json` and `snapshot/`. `add` and `remove` commit + push automatically.
+
+**Manifest schema:**
+
+```json
+{
+  "version": 1,
+  "dependencies": {
+    "rtk": {
+      "description": "Token-optimized CLI proxy",
+      "install": {
+        "darwin": "cargo install rtk-cli",
+        "linux":  "cargo install rtk-cli"
+      }
+    }
+  }
+}
+```
+
+**Security model.** Pull never installs anything. `bootstrap` is always explicit: shows the plan first, requires y/N (or `--yes`), and the slash-command wrapper drives confirmation via `AskUserQuestion` rather than pretending the Bash tool is a TTY. Install commands run with `shell: true`, so a compromised hub could push arbitrary commands — only sync with hubs you trust, and read the plan before confirming.
+
+**v1 boundaries.**
+- Detection covers `hooks/hooks.json` only; `scripts/**/*.sh` parsing deferred to v1.1 (shell tokenization is non-trivial; most useful binaries already surface via hooks).
+- Two platform keys (`darwin`, `linux`); `win32` deferred until requested.
+- Per-device manifests, no shared/global manifest — each device owns its deps list, paired with its hooks.
+
 ### Scope (what gets synced)
 
 **Default allowlist** (conservative — to avoid leaking unknown files):
@@ -136,8 +170,11 @@ Set `CLAUDE_HANDOFF_HOME` to a scratch path (e.g. `/tmp/trial`) to experiment wi
 | `handoff pull [--from <device>] [--confirm]` | Resolve + apply another device's snapshot to `~/.claude/`; `--confirm` shows a diff preview and asks y/N before applying |
 | `handoff diff [--from <device>] [-p]` | Preview changes before a pull — token-aware, binary-aware, shows unified patches |
 | `handoff status` | Show current device, hub remote, known devices, last push timestamps |
+| `handoff doctor` | Diagnose missing external deps referenced by hooks |
+| `handoff bootstrap` | Install declared deps that are missing on this machine |
+| `handoff deps add/list/remove` | Manage this device's `dependencies.json` |
 
-Future: `handoff pull --at <sha>` (historical version), `handoff log --device <name>` (per-device history).
+Future: `handoff pull --at <sha>` (historical version), `handoff log --device <name>` (per-device history), scripts/** extraction in `doctor`.
 
 ### `diff` — semantics
 

@@ -37,3 +37,16 @@ export interface HubManifest {
   devices: Record<string, { latest: DeviceVersion }>;
   updatedAt: string;
 }
+
+export interface DependencyEntry {
+  description?: string;
+  install: {
+    darwin?: string;
+    linux?: string;
+  };
+}
+
+export interface DependencyManifest {
+  version: 1;
+  dependencies: Record<string, DependencyEntry>;
+}

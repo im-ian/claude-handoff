@@ -5,6 +5,9 @@ import { pushCommand } from './commands/push.js';
 import { pullCommand } from './commands/pull.js';
 import { statusCommand } from './commands/status.js';
 import { diffCommand } from './commands/diff.js';
+import { doctorCommand } from './commands/doctor.js';
+import { bootstrapCommand } from './commands/bootstrap.js';
+import { depsAddCommand, depsListCommand, depsRemoveCommand } from './commands/deps.js';
 
 const program = new Command();
 
@@ -52,6 +55,43 @@ program
   .command('status')
   .description('Show sync state for this device and the hub.')
   .action(statusCommand);
+
+program
+  .command('doctor')
+  .description('Diagnose missing external dependencies referenced by hooks.')
+  .option('--verbose', 'Show all binaries (present + missing)')
+  .option('--fix', 'After diagnosis, run `bootstrap` to install missing declared deps')
+  .action(doctorCommand);
+
+program
+  .command('bootstrap')
+  .description('Install declared external dependencies that are missing on this machine.')
+  .option('--yes', 'Skip confirmation prompt (required in non-TTY environments)')
+  .option('--dry-run', 'Show install plan without executing')
+  .action(bootstrapCommand);
+
+const deps = program
+  .command('deps')
+  .description("Manage this device's declared external dependencies.");
+
+deps
+  .command('add <name>')
+  .description('Declare a dependency with per-platform install commands.')
+  .option('--darwin <cmd>', 'macOS install command')
+  .option('--linux <cmd>', 'Linux install command')
+  .option('--description <d>', 'Optional human description')
+  .action(depsAddCommand);
+
+deps
+  .command('list')
+  .description('List declared dependencies for this device.')
+  .action(depsListCommand);
+
+deps
+  .command('remove <name>')
+  .alias('rm')
+  .description('Remove a declared dependency.')
+  .action(depsRemoveCommand);
 
 program.parseAsync().catch((err: Error) => {
   console.error(pc.red(err.message));

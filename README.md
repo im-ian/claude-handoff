@@ -85,6 +85,9 @@ rm -rf ~/.claude-handoff                          # local config + hub clone (re
 | `/handoff-pull` | `handoff pull --from <device> [--dry-run] [--confirm]` | Apply another device's snapshot |
 | `/handoff-diff` | `handoff diff [--from <device>] [-p] [--files-only]` | Preview pull changes |
 | `/handoff-status` | `handoff status` | Sync state + known devices |
+| `/handoff-doctor` | `handoff doctor [--verbose] [--fix]` | Diagnose missing external deps referenced by hooks |
+| `/handoff-bootstrap` | `handoff bootstrap [--dry-run] [--yes]` | Install declared deps that are missing on this machine |
+| `/handoff-deps` | `handoff deps <add\|list\|remove> ...` | Manage this device's `dependencies.json` |
 
 `--help` on any subcommand for full flag listing.
 
@@ -124,6 +127,24 @@ Every scoped text file (≤ 2 MB) is scanned for: Anthropic/OpenAI/GitHub/Google
 - **Interactive (terminal, TTY).** Per-file: *skip* / *upload anyway* / *abort*. Public/unknown-visibility hubs additionally require a typed `yes` confirmation.
 - **Non-interactive (CI, Bash tool, slash commands).** Pass `--skip-on-secrets` (auto-skip flagged files) or `--allow-secrets` (bypass entirely). The `/handoff-push` slash command drives this choice via `AskUserQuestion` after a `--dry-run` preflight surfaces findings.
 - **False positives** (Django `SECRET_KEY` examples, test fixtures, password-pattern docs) → add file paths to `secretPolicy.allow` in config. Manual edits only — prevents click-fatigue from silently growing the list.
+
+---
+
+## Dependency management
+
+Hooks routinely invoke external CLIs (`gh`, `jq`, `clawd`, `rtk`, …). After a pull onto a fresh machine, those binaries may not be installed → hooks silently fail at runtime. Three commands handle this:
+
+- **`handoff doctor`** — parses `hooks/hooks.json`, identifies non-system binaries, runs `command -v` for each, reports missing with file:line context and a suggested fix from the manifest.
+- **`handoff deps add <name> --darwin "<cmd>" --linux "<cmd>"`** — declare an install command in this device's manifest (`<hub>/devices/<name>/dependencies.json`). Auto-commits + pushes.
+- **`handoff bootstrap`** — reads the manifest, shows the install plan for missing deps, asks confirmation, executes (`shell: true`), re-verifies. Pull *never* installs anything; bootstrap is always explicit.
+
+```bash
+handoff deps add gh --darwin "brew install gh" --linux "apt install gh"
+handoff doctor       # confirm gh is now declared, check what else is missing
+handoff bootstrap    # install missing declared deps
+```
+
+v1 detects from `hooks/hooks.json` only; `scripts/**/*.sh` parsing comes in v1.1.
 
 ---
 
