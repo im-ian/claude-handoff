@@ -65,6 +65,7 @@ export async function initCommand(opts: InitOptions): Promise<void> {
     claudeDir,
     substitutions: [],
     scope: structuredClone(DEFAULT_SCOPE),
+    secretPolicy: { allow: [] },
   };
 
   await writeConfig(config);

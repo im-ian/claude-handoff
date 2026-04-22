@@ -25,6 +25,8 @@ program
   .command('push')
   .description("Snapshot this device's Claude setup to the hub.")
   .option('-m, --message <msg>', 'Commit message override')
+  .option('--allow-secrets', 'Bypass the secret scanner entirely (use only when you are sure)')
+  .option('--skip-on-secrets', 'Non-interactive: auto-skip any file with detected secret findings')
   .action(pushCommand);
 
 program

@@ -18,6 +18,10 @@ const configSchema = z.object({
     optIn: z.array(z.string()),
     excludeExtra: z.array(z.string()),
   }),
+  // Optional on disk for backward compat with configs written before this field existed.
+  secretPolicy: z
+    .object({ allow: z.array(z.string()).default([]) })
+    .default({ allow: [] }),
 });
 
 export const paths = {

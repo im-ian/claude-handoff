@@ -64,6 +64,21 @@ Before pushing, we rewrite device-specific literals in text files to tokens:
 
 Tokenization applies only to text files; binaries are copied byte-for-byte. Files that should never be tokenized (e.g., credentials, logs) are excluded by scope rules.
 
+### Secret scanning on push
+
+Before any file leaves the device, `push` scans every scoped text file (binaries and files > 2 MB are skipped) against a curated pattern list: Anthropic / OpenAI / GitHub / Google / AWS / Slack keys, private-key block headers, JWTs, Bearer tokens, and generic `api_key` / `password` literals with enough entropy to look deliberate.
+
+**Per-file user decision (interactive TTY).** For each file with findings the user picks one of:
+- *skip this file* — omit from the snapshot; `pull` on other devices will not see it
+- *upload anyway* — include it as-is
+- *abort entire push* — bail out without publishing anything
+
+**Hub privacy gate.** Before prompting, the CLI runs `gh repo view <owner>/<repo> --json isPrivate` to classify the hub as `private` / `public` / `unknown`. When visibility is anything but `private`, "upload anyway" additionally requires the user to type `yes` in a second prompt — this is the only path by which secrets can reach a non-private hub, and it is always explicit.
+
+**Non-interactive fallback.** If stdin is not a TTY the scanner refuses to guess: the user must pass either `--skip-on-secrets` (auto-skip any flagged file) or `--allow-secrets` (bypass scanner entirely). This keeps CI / scripted pushes deterministic.
+
+**Policy persistence.** `DeviceConfig.secretPolicy.allow: string[]` is a per-device allowlist of relative paths the scanner should not inspect at all — intended for files where a token-shaped string is a deliberate template placeholder, not an actual credential. Additions to this list are manual (edit `~/.claude-handoff/config.json`) rather than auto-remembered from prompts, to avoid "click fatigue" turning into silent allowlist growth.
+
 ### Scope (what gets synced)
 
 **Default allowlist** (conservative — to avoid leaking unknown files):
