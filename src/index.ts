@@ -34,6 +34,7 @@ program
   .description("Apply a device's snapshot to this machine.")
   .option('--from <device>', 'Source device (default: this device)')
   .option('--dry-run', 'List files that would be written without applying')
+  .option('--confirm', 'Show diff preview and require y/N before applying')
   .action(pullCommand);
 
 program

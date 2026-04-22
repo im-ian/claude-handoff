@@ -131,7 +131,7 @@ Before any file leaves the device, `push` scans every scoped text file (binaries
 |---------|---------|
 | `handoff init` | Register this device, clone/link hub repo, write local config |
 | `handoff push` | Tokenize + copy scoped files to `hub/devices/<this>/snapshot/`, commit, push |
-| `handoff pull [--from <device>]` | Resolve + apply another device's snapshot to `~/.claude/` |
+| `handoff pull [--from <device>] [--confirm]` | Resolve + apply another device's snapshot to `~/.claude/`; `--confirm` shows a diff preview and asks y/N before applying |
 | `handoff diff [--from <device>] [-p]` | Preview changes before a pull — token-aware, binary-aware, shows unified patches |
 | `handoff status` | Show current device, hub remote, known devices, last push timestamps |
 
@@ -143,6 +143,12 @@ Future: `handoff pull --at <sha>` (historical version), `handoff log --device <n
 - Snapshot content is run through token **resolution** before comparison — so a file that only differs by `${HANDOFF_HOME}` vs. the local absolute path reports as `unchanged`, not `modified`. This matches the invariant that `tokenize` on push followed by `resolve` on pull is an identity transform on the same device.
 - Binary files are compared by SHA-256, not byte-diffed.
 - Files present locally but absent from the snapshot (`deleted` in diff output) are marked with `L`. `pull` does **not** remove them — this is explicit so the user is never surprised by silent deletions. Removing files on the hub requires pushing from the device that owns those files.
+
+## Claude Code plugin wrapper
+
+A sibling `plugin/` directory exposes `handoff` as slash commands (`/handoff-push`, `/handoff-pull`, `/handoff-diff`, `/handoff-status`, `/handoff-init`). Installation is a symlink step (`plugin/install.sh`) — the command files live in the repo and stay in sync via `git pull`.
+
+Slash commands pass through arguments via `$ARGUMENTS`, so `/handoff-pull --from work-pc --confirm` routes to the CLI verbatim. The wrapper intentionally does NOT try to handle interactive prompts (secret review, `--confirm` y/N, `init`'s hub URL prompt) — the Bash tool is not a TTY, and pretending otherwise breaks silently. Instead, each command's body tells the agent how to fall back (pass non-interactive flags or run directly in the terminal).
 
 ## Non-goals (MVP)
 

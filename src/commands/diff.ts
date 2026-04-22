@@ -7,7 +7,8 @@ import { readManifest } from '../core/manifest.js';
 import { buildSubs, resolve as resolveTokens } from '../core/tokenize.js';
 import { listScopedFiles } from '../core/scope.js';
 import { pathExists } from '../core/fs-util.js';
-import { diffTrees, type DiffCounts, type FileChange } from '../core/diff-engine.js';
+import { diffTrees } from '../core/diff-engine.js';
+import { formatDiffReport } from '../core/diff-format.js';
 
 export interface DiffOptions {
   from?: string;
@@ -57,80 +58,5 @@ export async function diffCommand(opts: DiffOptions): Promise<void> {
     : `local (${cfg.device}) ← snapshot (${source})`;
   console.log(pc.bold(`Diff: ${header}`));
   console.log();
-
-  const relevant = summary.changes.filter((c) => c.status !== 'unchanged');
-  if (relevant.length === 0) {
-    console.log(pc.green('✓ No differences within scope.'));
-    return;
-  }
-
-  for (const change of relevant) {
-    const marker = markerFor(change.status);
-    const metric = metricFor(change);
-    console.log(`  ${marker} ${pc.cyan(change.path)} ${metric}`);
-    if (opts.patch && change.patch) {
-      console.log();
-      console.log(colorizePatch(change.patch));
-    }
-  }
-
-  if (opts.filesOnly) return;
-
-  console.log();
-  console.log(pc.dim(summaryLine(summary.counts, relevant.length)));
-  if (summary.counts.deleted > 0) {
-    console.log(pc.dim('(L = local-only; `pull` will not remove these.)'));
-  }
-}
-
-function markerFor(status: FileChange['status']): string {
-  switch (status) {
-    case 'added':
-      return pc.green('+');
-    case 'modified':
-      return pc.yellow('M');
-    case 'binary-modified':
-      return pc.yellow('B');
-    case 'deleted':
-      return pc.dim('L');
-    default:
-      return ' ';
-  }
-}
-
-function metricFor(change: FileChange): string {
-  switch (change.status) {
-    case 'added':
-      return pc.dim(`(new, +${change.additions} lines)`);
-    case 'modified':
-      return pc.dim(`(+${change.additions} -${change.deletions})`);
-    case 'binary-modified':
-      return pc.dim('(binary changed)');
-    case 'deleted':
-      return pc.dim('(only in local)');
-    default:
-      return '';
-  }
-}
-
-function summaryLine(counts: DiffCounts, total: number): string {
-  const parts: string[] = [];
-  if (counts.added) parts.push(`${counts.added} added`);
-  const modified = counts.modified + counts['binary-modified'];
-  if (modified) parts.push(`${modified} modified`);
-  if (counts.deleted) parts.push(`${counts.deleted} local-only`);
-  return `${total} files differ (${parts.join(', ')}).`;
-}
-
-function colorizePatch(patch: string): string {
-  return patch
-    .split('\n')
-    .map((line) => {
-      if (line.startsWith('+++') || line.startsWith('---')) return pc.bold(line);
-      if (line.startsWith('@@')) return pc.cyan(line);
-      if (line.startsWith('+')) return pc.green(line);
-      if (line.startsWith('-')) return pc.red(line);
-      return line;
-    })
-    .join('\n');
+  console.log(formatDiffReport(summary, { patch: opts.patch, filesOnly: opts.filesOnly }));
 }

@@ -2,15 +2,25 @@ import path from 'node:path';
 import os from 'node:os';
 import { promises as fs } from 'node:fs';
 import pc from 'picocolors';
+import prompts from 'prompts';
 import { paths, requireConfig } from '../core/config.js';
 import { ensureClone, pullLatest } from '../core/git.js';
 import { buildSubs, resolve } from '../core/tokenize.js';
 import { readManifest } from '../core/manifest.js';
-import { copyFileEnsureDir, isBinaryFile, walkFiles, pathExists } from '../core/fs-util.js';
+import { listScopedFiles } from '../core/scope.js';
+import {
+  copyFileEnsureDir,
+  isBinaryFile,
+  walkFiles,
+  pathExists,
+} from '../core/fs-util.js';
+import { diffTrees } from '../core/diff-engine.js';
+import { formatDiffReport, hasRelevantChanges } from '../core/diff-format.js';
 
 export interface PullOptions {
   from?: string;
   dryRun?: boolean;
+  confirm?: boolean;
 }
 
 export async function pullCommand(opts: PullOptions): Promise<void> {
@@ -24,7 +34,9 @@ export async function pullCommand(opts: PullOptions): Promise<void> {
   if (!manifest.devices[source]) {
     console.error(pc.red(`Unknown device "${source}".`));
     const known = Object.keys(manifest.devices);
-    console.error(pc.dim(`Known devices: ${known.length ? known.join(', ') : '(none — push from at least one device first)'}`));
+    console.error(
+      pc.dim(`Known devices: ${known.length ? known.join(', ') : '(none — push from at least one device first)'}`),
+    );
     process.exit(1);
   }
 
@@ -40,12 +52,57 @@ export async function pullCommand(opts: PullOptions): Promise<void> {
     extra: cfg.substitutions,
   });
 
+  if (opts.confirm && !opts.dryRun) {
+    const localScoped = (await pathExists(cfg.claudeDir))
+      ? await listScopedFiles(cfg.claudeDir, cfg.scope)
+      : [];
+    const summary = await diffTrees({
+      snapshotRoot,
+      localRoot: cfg.claudeDir,
+      localScoped,
+      resolveContent: (text) => resolve(text, subs),
+    });
+
+    const header = source === cfg.device
+      ? `local vs last push (${cfg.device})`
+      : `local (${cfg.device}) ← snapshot (${source})`;
+    console.log(pc.bold(`Diff: ${header}`));
+    console.log();
+    console.log(formatDiffReport(summary));
+    console.log();
+
+    if (!hasRelevantChanges(summary)) {
+      console.log(pc.green('✓ Already up to date — nothing to pull.'));
+      return;
+    }
+
+    if (!process.stdin.isTTY) {
+      console.error(pc.red('--confirm was requested but stdin is not a TTY.'));
+      process.exit(1);
+    }
+
+    const { proceed } = await prompts(
+      {
+        type: 'confirm',
+        name: 'proceed',
+        message: `Apply these changes to ${cfg.claudeDir}?`,
+        initial: false,
+      },
+      { onCancel: () => ({ proceed: false }) },
+    );
+
+    if (!proceed) {
+      console.log(pc.yellow('Pull aborted.'));
+      return;
+    }
+  }
+
   const files = await walkFiles(snapshotRoot);
   console.log(pc.dim(`Applying ${files.length} files from "${source}" → ${cfg.claudeDir}`));
 
   if (opts.dryRun) {
     for (const rel of files) console.log(`  ${pc.cyan('[dry]')} ${rel}`);
-    console.log(pc.yellow(`(dry-run — no files written)`));
+    console.log(pc.yellow('(dry-run — no files written)'));
     return;
   }
 
@@ -66,6 +123,6 @@ export async function pullCommand(opts: PullOptions): Promise<void> {
 
   console.log(pc.green(`✓ pulled "${source}" into ${cfg.claudeDir}`));
   if (source !== cfg.device) {
-    console.log(pc.dim(`Pulled files within scope were overwritten; files outside scope are untouched.`));
+    console.log(pc.dim('Pulled files within scope were overwritten; files outside scope are untouched.'));
   }
 }
