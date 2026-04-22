@@ -4,6 +4,7 @@ import { initCommand } from './commands/init.js';
 import { pushCommand } from './commands/push.js';
 import { pullCommand } from './commands/pull.js';
 import { statusCommand } from './commands/status.js';
+import { diffCommand } from './commands/diff.js';
 
 const program = new Command();
 
@@ -32,6 +33,14 @@ program
   .option('--from <device>', 'Source device (default: this device)')
   .option('--dry-run', 'List files that would be written without applying')
   .action(pullCommand);
+
+program
+  .command('diff')
+  .description('Preview what would change when pulling from a device.')
+  .option('--from <device>', 'Source device (default: this device — useful as pre-push preview)')
+  .option('-p, --patch', 'Include full unified diff for each modified file')
+  .option('--files-only', 'List paths and markers only')
+  .action(diffCommand);
 
 program
   .command('status')
