@@ -10,7 +10,7 @@
 </picture>
 
 <p align="center">
-  Claude Code 설정을 디바이스 간에 전달 — Apple Handoff처럼, <code>~/.claude/</code>에 대해.
+  Claude Code 설정을 디바이스 간에 전달 — <code>~/.claude/</code>를 여러 머신에서 동기화.
 </p>
 
 ---

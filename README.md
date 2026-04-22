@@ -10,7 +10,7 @@
 </picture>
 
 <p align="center">
-  Hand off your Claude Code setup between devices — like Apple Handoff, but for <code>~/.claude/</code>.
+  Hand off your Claude Code setup between devices — sync <code>~/.claude/</code> across machines.
 </p>
 
 ---
