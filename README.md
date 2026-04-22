@@ -17,9 +17,11 @@
 
 ## Why
 
-Use Claude Code on multiple machines and you eventually copy `hooks.json` from your home Mac to your work Mac, only to watch every hook fail because `/Users/your-home-name/` doesn't exist under `/Users/your-work-name/`. `claude-handoff` tokenizes machine-specific paths so hooks Just Work, scans for secrets before anything leaves your machine, and supports N devices × M versions through a shared hub repository.
+If you use Claude Code on more than one machine — say a home Mac and a work Mac — moving hooks, skills, and agents between them is surprisingly painful. Copying `hooks.json` across doesn't work: absolute paths like `/Users/your-home-name/…` don't exist on the other machine, so every hook breaks. Skills, agents, and rules all end up getting moved by hand.
 
-Everything happens inside Claude Code via slash commands — no flag-chasing, no TTY hangs, no terminal gymnastics.
+`claude-handoff` automates the whole thing. Per-machine paths are rewritten to portable tokens so configs resolve correctly wherever you pull them, a scanner catches secrets (API keys, tokens) before anything leaves your device, and a shared hub repository keeps every machine's configs and push history in one place.
+
+It all runs inside Claude Code through slash commands — no terminal juggling, no flags to memorize.
 
 ---
 
