@@ -61,6 +61,15 @@ handoff pull --from my-macbook --confirm
 
 Node.js 20 이상이 필요합니다.
 
+**npm에 배포된 이후** (준비 중 — [`docs/PUBLISHING.md`](docs/PUBLISHING.md) 참조):
+
+```bash
+npm install -g @im-ian/claude-handoff
+handoff --version
+```
+
+**소스에서 설치** (npm 배포 전 현재 경로):
+
 ```bash
 git clone https://github.com/im-ian/claude-handoff.git
 cd claude-handoff
@@ -75,19 +84,36 @@ pnpm 사용자 (먼저 `pnpm setup`으로 `PNPM_HOME` 설정 필요):
 pnpm install && pnpm build && pnpm link --global
 ```
 
-확인:
+둘 다 확인:
 
 ```bash
 handoff --version        # → 0.0.1
 ```
 
-npm에 배포되면 `npm install -g claude-handoff` 한 줄로 끝나게 됩니다.
-
 ### 2. Claude Code 슬래시 커맨드 플러그인
 
 두 가지 설치 방법 중 **하나만** 선택하세요. 섞어 쓰면 커맨드가 중복 로드됩니다.
 
-#### 방법 A — 로컬 symlink (가장 빠름; 레포를 로컬에 두고 개발할 때 권장)
+#### 방법 A — Claude Code 마켓플레이스 ⭐ **일반 사용자에게 권장**
+
+레포 루트에 `.claude-plugin/marketplace.json` 마켓플레이스 매니페스트가 포함되어 있습니다. Claude Code 안에서:
+
+```
+/plugin marketplace add im-ian/claude-handoff
+/plugin install claude-handoff@claude-handoff
+```
+
+이 방식을 권장하는 이유:
+
+- Claude Code 내장 플러그인 매니저가 관리. `/plugin update`로 업데이트.
+- 이 레포를 로컬에 clone할 필요 없음.
+- 네임스페이싱이 깔끔하고, `/plugin uninstall`로 제거 가능.
+
+이 방법은 슬래시 커맨드만 제공합니다 — **CLI는 별도로 설치 필요** (위 1단계 참조).
+
+#### 방법 B — 로컬 symlink (레포 기여자 또는 최신 git 추적용)
+
+레포를 직접 편집하거나 merge되지 않은 변경 사항까지 `/handoff-*` 커맨드에 반영하고 싶을 때 선택하세요.
 
 레포 루트에서:
 
@@ -105,9 +131,7 @@ linked: /handoff-diff
 linked: /handoff-status
 ```
 
-symlink이기 때문에 이 레포를 `git pull`하면 새/업데이트된 커맨드가 자동으로 반영됩니다 — 재설치 불필요.
-
-슬래시 커맨드는 **Claude Code 세션이 다시 시작될 때** 보입니다. 지금 바로 활성화하려면 Claude Code를 재시작하거나 새 대화를 여세요.
+symlink이기 때문에 이 레포를 `git pull`하면 새/업데이트된 커맨드가 자동으로 반영됩니다 — 재설치 불필요. 슬래시 커맨드는 Claude Code 세션이 다시 시작될 때 보입니다.
 
 제거:
 
@@ -116,17 +140,6 @@ rm ~/.claude/commands/handoff-*.md
 ```
 
 symlink만 지우므로 안전합니다 — 이 레포의 원본 파일은 그대로 유지.
-
-#### 방법 B — Claude Code 마켓플레이스를 통한 정식 플러그인 설치
-
-레포 루트에 `.claude-plugin/marketplace.json` 마켓플레이스 매니페스트가 포함되어 있습니다. Claude Code 안에서:
-
-```
-/plugin marketplace add im-ian/claude-handoff
-/plugin install claude-handoff@claude-handoff
-```
-
-Claude Code 내장 플러그인 매니저가 관리합니다. 업데이트는 `/plugin update`로. Claude Code 버전에 따라 플러그인 이름으로 네임스페이싱될 수 있습니다. 방법 A의 symlink과 방법 B가 둘 다 있으면 자동완성에 동일 커맨드가 두 번 뜹니다 — 방법 B로 전환하기 전에 `rm ~/.claude/commands/handoff-*.md`로 symlink를 먼저 제거하세요.
 
 ### 3. 전체 설치 확인
 
@@ -144,8 +157,9 @@ Claude Code에서 `/handoff-`를 입력했을 때 5개 커맨드가 자동완성
 rm ~/.claude/commands/handoff-*.md
 
 # CLI
-npm unlink -g claude-handoff
-# 또는: pnpm unlink --global claude-handoff
+npm uninstall -g @im-ian/claude-handoff   # npm으로 설치한 경우
+npm unlink -g @im-ian/claude-handoff      # `npm link`로 설치한 경우
+# 또는: pnpm unlink --global @im-ian/claude-handoff
 
 # 기기별 상태 (config.json과 로컬 hub clone 삭제)
 rm -rf ~/.claude-handoff

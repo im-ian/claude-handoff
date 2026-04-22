@@ -1,11 +1,21 @@
 {
-  "name": "claude-handoff",
+  "name": "@im-ian/claude-handoff",
   "version": "0.0.1",
   "description": "Hand off your Claude Code setup between devices — like Apple Handoff, but for ~/.claude/",
   "type": "module",
   "bin": {
-    "handoff": "./dist/index.js",
-    "claude-handoff": "./dist/index.js"
+    "handoff": "./dist/index.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/im-ian/claude-handoff.git"
+  },
+  "homepage": "https://github.com/im-ian/claude-handoff#readme",
+  "bugs": {
+    "url": "https://github.com/im-ian/claude-handoff/issues"
   },
   "files": [
     "dist",

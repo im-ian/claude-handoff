@@ -61,6 +61,15 @@ Two pieces to install: the `handoff` **CLI** (the actual tool), and the Claude C
 
 Requires Node.js ≥ 20.
 
+**Once published to npm** (pending — see [`docs/PUBLISHING.md`](docs/PUBLISHING.md)):
+
+```bash
+npm install -g @im-ian/claude-handoff
+handoff --version
+```
+
+**From source** (current path until the npm release):
+
 ```bash
 git clone https://github.com/im-ian/claude-handoff.git
 cd claude-handoff
@@ -75,19 +84,36 @@ Or with pnpm (requires `pnpm setup` first to configure `PNPM_HOME`):
 pnpm install && pnpm build && pnpm link --global
 ```
 
-Verify:
+Verify either way:
 
 ```bash
 handoff --version        # → 0.0.1
 ```
 
-Once published to npm this will collapse to `npm install -g claude-handoff`.
-
 ### 2. The Claude Code slash-command plugin
 
 Pick **one** of the two install paths. Don't mix them — you'll end up with duplicate commands loaded twice.
 
-#### Option A — Local symlinks (fastest; best while you're iterating on the repo)
+#### Option A — Claude Code marketplace ⭐ **recommended for most users**
+
+The repo ships a marketplace manifest at `.claude-plugin/marketplace.json`. Inside Claude Code:
+
+```
+/plugin marketplace add im-ian/claude-handoff
+/plugin install claude-handoff@claude-handoff
+```
+
+Why this one:
+
+- Managed by Claude Code's built-in plugin manager. Updates ride through `/plugin update`.
+- No need to clone this repo on your machine.
+- Namespaced cleanly; uninstall with `/plugin uninstall`.
+
+This path gives you the slash commands but **not** the CLI. You still need to install `handoff` separately (see step 1 above).
+
+#### Option B — Local symlinks (for contributors or latest-git tracking)
+
+Pick this when you're actively editing the repo or want your `/handoff-*` commands to track unmerged changes.
 
 From the repo root:
 
@@ -105,9 +131,7 @@ linked: /handoff-diff
 linked: /handoff-status
 ```
 
-Because they're symlinks, `git pull` on this repo automatically picks up new/updated commands — no reinstall needed.
-
-The slash commands become visible in Claude Code the **next time a session starts**. To activate them now, restart Claude Code (or open a new conversation).
+Because they're symlinks, `git pull` on this repo automatically picks up new/updated commands — no reinstall needed. The slash commands become visible in Claude Code the next time a session starts.
 
 To uninstall:
 
@@ -116,17 +140,6 @@ rm ~/.claude/commands/handoff-*.md
 ```
 
 Safe — removes only the symlinks; the source files in this repo stay.
-
-#### Option B — Proper plugin via Claude Code's marketplace
-
-The repo ships a marketplace manifest at `.claude-plugin/marketplace.json`. Inside Claude Code:
-
-```
-/plugin marketplace add im-ian/claude-handoff
-/plugin install claude-handoff@claude-handoff
-```
-
-This uses Claude Code's built-in plugin manager. Updates ride through `/plugin update`. Commands end up namespaced by the plugin name depending on your Claude Code version. If both Option A symlinks and Option B are present you may see each command twice in autocomplete — `rm ~/.claude/commands/handoff-*.md` before switching to Option B.
 
 ### 3. Verify the full install
 
@@ -144,8 +157,9 @@ In Claude Code, type `/handoff-` and the five commands should appear in autocomp
 rm ~/.claude/commands/handoff-*.md
 
 # the CLI
-npm unlink -g claude-handoff
-# or: pnpm unlink --global claude-handoff
+npm uninstall -g @im-ian/claude-handoff   # if installed from npm
+npm unlink -g @im-ian/claude-handoff      # if installed via `npm link`
+# or: pnpm unlink --global @im-ian/claude-handoff
 
 # per-device state (erases config.json and the local hub clone)
 rm -rf ~/.claude-handoff
