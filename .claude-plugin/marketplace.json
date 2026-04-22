@@ -10,8 +10,8 @@
     {
       "name": "claude-handoff",
       "source": "./plugin",
-      "description": "Slash-command wrapper around the claude-handoff CLI — /handoff-init, /handoff-push, /handoff-pull, /handoff-diff, /handoff-status.",
-      "version": "0.0.1",
+      "description": "Slash-command wrapper around the claude-handoff CLI — /handoff-init, /handoff-push, /handoff-pull, /handoff-diff, /handoff-status, /handoff-doctor, /handoff-bootstrap, /handoff-deps.",
+      "version": "1.0.0",
       "author": {
         "name": "im-ian"
       },

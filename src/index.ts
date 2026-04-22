@@ -14,7 +14,7 @@ const program = new Command();
 program
   .name('handoff')
   .description('Hand off your Claude Code setup between devices.')
-  .version('0.0.1');
+  .version('1.0.0');
 
 program
   .command('init')

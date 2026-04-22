@@ -1,6 +1,6 @@
 {
   "name": "@im-ian/claude-handoff",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Hand off your Claude Code setup between devices — like Apple Handoff, but for ~/.claude/",
   "type": "module",
   "bin": {

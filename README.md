@@ -197,9 +197,9 @@ One git commit on the hub = one push from one device. **N devices × M versions*
 
 ## Status
 
-Working MVP, used in production. CLI source-only; npm publish pending.
+**v1.0.0** — stable. Used in production across multiple devices. npm publish pending.
 
-**Roadmap:** `handoff log --device <name>`, `handoff pull --at <sha>`, auto credential-helper setup on `init`, npm release.
+**Roadmap:** `handoff log --device <name>`, `handoff pull --at <sha>`, auto credential-helper setup on `init`, `scripts/**/*.sh` parsing in `doctor`, npm release.
 
 ---
 

@@ -197,9 +197,9 @@ Hub의 git commit 하나 = 한 디바이스의 push 한 번. **N개 디바이스
 
 ## 상태
 
-작동하는 MVP, 실제 운영 중. CLI 소스 빌드만 가능; npm 배포 예정.
+**v1.0.0** — 안정 버전. 여러 디바이스에서 실제 운영 중. npm 배포 예정.
 
-**로드맵:** `handoff log --device <name>`, `handoff pull --at <sha>`, `init` 시 credential helper 자동 설정, npm 배포.
+**로드맵:** `handoff log --device <name>`, `handoff pull --at <sha>`, `init` 시 credential helper 자동 설정, `doctor`의 `scripts/**/*.sh` 파싱, npm 배포.
 
 ---
 
