@@ -134,6 +134,36 @@ To issue a new release through the official marketplace:
 
 No submission required — users pulling from `/plugin marketplace add im-ian/claude-handoff` track `main` automatically. `/plugin update` fetches whatever is at `HEAD`.
 
+## Troubleshooting: stale marketplace cache
+
+Observed on Claude Code in April 2026: after `/plugin marketplace add <repo>` has run once and a later `git push` updates the marketplace repo, a subsequent `/plugin marketplace add <same-repo>` reports "Successfully added" but does **not** actually re-fetch. The local clone at `~/.claude/plugins/marketplaces/<name>/` keeps its old commit, and any `/plugin install` from that marketplace stages outdated content.
+
+Reproduce & verify:
+
+```bash
+git -C ~/.claude/plugins/marketplaces/claude-handoff log --oneline -3
+# should show the latest commit you published; if it doesn't, the cache is stale
+```
+
+Three ways to unstick it, cheapest first:
+
+1. **Git pull the marketplace clone** (non-destructive, preserves installed plugins):
+   ```bash
+   git -C ~/.claude/plugins/marketplaces/claude-handoff pull --ff-only
+   ```
+2. **Remove and re-add the marketplace** (drops any install state too):
+   ```
+   /plugin marketplace remove claude-handoff
+   /plugin marketplace add im-ian/claude-handoff
+   ```
+3. **Delete the cached clone manually** before re-adding:
+   ```bash
+   rm -rf ~/.claude/plugins/marketplaces/claude-handoff
+   ```
+   Then `/plugin marketplace add im-ian/claude-handoff`.
+
+End users installing through the marketplace won't hit this on first install (fresh clone), but will hit it if they try to get a newer version by running `add` a second time. Mention this in release notes so people know to run `/plugin update` or the `git pull` trick.
+
 ## Rollback
 
 ### npm
