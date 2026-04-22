@@ -1,19 +1,19 @@
 {
   "name": "claude-handoff",
   "version": "0.0.1",
-  "description": "Sync your Claude Code setup across devices via a shared hub repo — with tokenization for cross-device paths and built-in secret scanning.",
-  "author": "im-ian",
+  "description": "Slash-command wrapper around the claude-handoff CLI — /handoff-init, /handoff-push, /handoff-pull, /handoff-diff, /handoff-status. Requires the `handoff` CLI on PATH (see repo README).",
+  "author": {
+    "name": "im-ian"
+  },
   "homepage": "https://github.com/im-ian/claude-handoff",
   "repository": "https://github.com/im-ian/claude-handoff.git",
   "license": "MIT",
-  "requires": {
-    "cli": "handoff"
-  },
-  "commands": [
-    "commands/handoff-init.md",
-    "commands/handoff-push.md",
-    "commands/handoff-pull.md",
-    "commands/handoff-diff.md",
-    "commands/handoff-status.md"
-  ]
+  "keywords": [
+    "sync",
+    "handoff",
+    "dotfiles",
+    "cross-device",
+    "claude-code"
+  ],
+  "commands": ["./commands/"]
 }
