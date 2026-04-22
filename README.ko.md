@@ -225,12 +225,23 @@ Hub의 git commit 하나 = 한 디바이스의 push 한 번. **N개 디바이스
 
 ---
 
-## 선행 사례
+## 관련 프로젝트
 
-- [`claude-teleport`](https://github.com/anthropics/claude-code-plugins) — 일회성 beam, 디바이스 인식 없음.
-- Dotfile 매니저 (`chezmoi`, `yadm`, `stow`) — 범용 도구라 경로 차이 처리에 수동 템플릿 필요.
+[`claude-teleport`](https://github.com/seilk/claude-teleport) ([@seilk](https://github.com/seilk))는 같은 공간을 다루는 프로젝트("private GitHub repo를 통해 Claude Code 설정을 머신 간 동기화")이며, `claude-handoff`는 여기서 직접 영감을 받았습니다. 두 프로젝트는 아키텍처 선택이 달라서, 선택 전에 차이를 이해하는 게 좋아요:
 
-`claude-handoff`는 Claude Code 전용 — 어떤 부분이 머신 종속이고 어떤 부분이 이식 가능한지 알고, secret이 새지 않는 기본값과, 터미널로 끌려들어가지 않는 슬래시 명령어 UX를 가집니다.
+| | claude-teleport | claude-handoff |
+|---|---|---|
+| 저장 모델 | 디바이스당 branch, `main`에 자동 merge | 디바이스당 디렉토리(`devices/<name>/`)를 `main` 위에, merge 없음 |
+| 머신 간 경로 | 그대로 동기화 | 토큰화 — `${HANDOFF_CLAUDE}` / `${HANDOFF_HOME}`으로 `/Users/alice/…` hook이 `/Users/bob/…`에서도 동작 |
+| 외부 의존성 추적 | — | `doctor` / `bootstrap` / `deps`로 hook이 참조하는 CLI의 누락 진단 |
+| Public 공유 | `teleport-share` / `teleport-from <user>` | Private hub 전용 (설계상) |
+| Plugin 캐시 | 동기화 (plugins + marketplaces 포함) | 제외 — 각 머신에서 `/plugin install`로 재설치 |
+
+Branch-merge 기반 단일 source-of-truth와 public 공유가 필요하면 teleport, 디바이스별 격리 + 경로 토큰화 + 외부 의존성 추적이 필요하면 claude-handoff를 고르세요.
+
+**왜 PR이 아니라 별도 프로젝트인가?** 저장 모델(directory vs. branch), 경로 토큰화, 의존성 추적 표면은 모든 명령어에 걸쳐 있어서 — patch가 아니라 같은 문제 공간에서의 다른 tradeoff 세트입니다. seilk의 설계는 그의 use case에 일관성 있고, `claude-handoff`는 다른 지점을 탐색합니다.
+
+Dotfile 매니저 (`chezmoi`, `yadm`, `stow`)도 범용 sync 문제를 풀지만, 경로 차이 처리에 수동 템플릿이 필요합니다. 위 두 프로젝트는 Claude Code의 디렉토리 구조를 미리 알고 있어서 그 단계를 건너뛸 수 있어요.
 
 ---
 

@@ -225,12 +225,23 @@ Every slash command is a thin wrapper around a matching `handoff <subcommand>` i
 
 ---
 
-## Prior art
+## Related work
 
-- [`claude-teleport`](https://github.com/anthropics/claude-code-plugins) — one-shot beam, no per-device awareness.
-- Dotfile managers (`chezmoi`, `yadm`, `stow`) — general-purpose, require manual templating for path differences.
+[`claude-teleport`](https://github.com/seilk/claude-teleport) by [@seilk](https://github.com/seilk) covers the same space — "sync Claude Code setup across machines via a private GitHub repo" — and `claude-handoff` was directly inspired by it. The two projects ended up with different architectural choices worth understanding before picking one:
 
-`claude-handoff` is purpose-built for Claude Code: knows which pieces are machine-specific vs. portable, defaults that keep secrets out, and a slash-command UX that never drops you into an interactive terminal flow.
+| | claude-teleport | claude-handoff |
+|---|---|---|
+| Storage model | Branch-per-device, auto-merged into `main` | Directory-per-device (`devices/<name>/`) on `main`, no merging |
+| Cross-device paths | Synced verbatim | Tokenized — `${HANDOFF_CLAUDE}` / `${HANDOFF_HOME}` so a hook written on `/Users/alice/…` runs correctly on `/Users/bob/…` |
+| External dep tracking | — | `doctor` / `bootstrap` / `deps` surface missing CLIs referenced by hooks |
+| Public sharing | `teleport-share` / `teleport-from <user>` | Private-hub only (by design) |
+| Plugin cache | Synced (plugins + marketplaces included) | Excluded — reinstall via `/plugin install` on each machine |
+
+If you want a branch-merged single-source-of-truth with public sharing, pick teleport. If you want per-device isolation, path tokenization, and external-dep tracking, pick this one.
+
+**Why a separate project, not a PR?** The storage model (directory vs. branch), path tokenization, and dep-tracking surface touch every command — they aren't a patch, they're a different set of tradeoffs in the same problem space. seilk's design is coherent for its use case; `claude-handoff` explores different ones.
+
+Dotfile managers (`chezmoi`, `yadm`, `stow`) also solve the broader sync problem, but require manual templating for path differences. Both projects above skip that by baking in knowledge of Claude Code's directory shape.
 
 ---
 
