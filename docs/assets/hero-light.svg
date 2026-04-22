@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 280" role="img" aria-labelledby="title">
+  <title id="title">claude-handoff</title>
+
+  <text x="600" y="56" text-anchor="middle"
+        font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="34" font-weight="600" fill="#18181b">claude-handoff</text>
+
+  <g fill="none" stroke="#27272a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(180, 100)">
+      <rect x="0" y="0" width="200" height="125" rx="6"/>
+      <rect x="22" y="20" width="156" height="85" rx="2" stroke-width="1.2" stroke-dasharray="3 4" opacity="0.45"/>
+      <line x1="-18" y1="138" x2="218" y2="138"/>
+    </g>
+    <g transform="translate(820, 100)">
+      <rect x="0" y="0" width="200" height="125" rx="6"/>
+      <rect x="22" y="20" width="156" height="85" rx="2" stroke-width="1.2" stroke-dasharray="3 4" opacity="0.45"/>
+      <line x1="-18" y1="138" x2="218" y2="138"/>
+    </g>
+  </g>
+
+  <g fill="none" stroke="#cc7c59" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" transform="translate(600, 163)">
+    <line x1="-180" y1="-14" x2="180" y2="-14"/>
+    <polyline points="160,-28 180,-14 160,0"/>
+    <line x1="-180" y1="14" x2="180" y2="14"/>
+    <polyline points="-160,0 -180,14 -160,28"/>
+  </g>
+
+  <text x="600" y="265" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', sans-serif"
+        font-size="14" fill="#71717a" letter-spacing="0.5">~/.claude/  ·  device-aware  ·  path-tokenized  ·  secret-scanned</text>
+</svg>

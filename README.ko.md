@@ -4,526 +4,190 @@
 
 </div>
 
-# claude-handoff
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/hero-dark.svg">
+  <img src="docs/assets/hero-light.svg" alt="claude-handoff" width="100%">
+</picture>
 
-기기 간에 Claude Code 세팅을 이어주는 도구 — Apple Handoff처럼, 하지만 `~/.claude/` 를 위한.
-
-> agents, commands, hooks, skills, rules를 모든 작업 기기에서 동일하게 유지합니다. 기기별 경로나 시크릿을 유출하지 않고.
+<p align="center">
+  Claude Code 설정을 디바이스 간에 전달 — Apple Handoff처럼, <code>~/.claude/</code>에 대해.
+</p>
 
 ---
 
 ## 왜 필요한가
 
-Claude Code를 여러 대의 기기(노트북, 데스크탑, 회사 PC, 서버)에서 쓴다면 아마 이런 경험이 있을 겁니다:
-
-- 유용한 hook을 한 기기에 설치 → 다른 기기에 미러링하는 걸 까먹음
-- agent 프롬프트를 조금 손봤는데 → 일주일 안에 두 기기 설정이 벌어짐
-- 새 기기를 셋업 → 처음부터 다시 구성하느라 한 시간 소모
-- 최악의 경우: 집 맥에서 `hooks.json`을 회사 맥에 복사했더니 `/Users/home-username/` 경로가 회사 맥에 존재하지 않아서 모든 hook이 깨짐
-
-`claude-handoff`는 Claude Code 설정을 일급 객체로, 기기를 인지하는 sync 대상으로 다룹니다. 기기별 경로를 토큰화해서 다른 기기에서도 hook이 그대로 동작하게 하고, 무언가 올라가기 전에 시크릿을 스캔하며, 공유 hub 레포를 통해 N개 기기 × M개 버전을 지원합니다.
+여러 머신에서 Claude Code를 쓰다 보면 결국 홈 Mac의 `hooks.json`을 회사 Mac으로 복사하게 되는데, `/Users/홈-사용자명/`이 회사 머신에 존재하지 않아서 모든 hook이 깨집니다. `claude-handoff`는 머신 종속적인 경로를 토큰화해서 hook이 그대로 작동하도록 만들고, 머신을 떠나기 전에 secret을 스캔하며, 공유 hub 저장소를 통해 N개 디바이스 × M개 버전을 지원합니다.
 
 ---
 
 ## 빠른 시작
 
 ```bash
-# 1. 슬래시 커맨드 플러그인 설치 — Claude Code 안에서:
+# 1. 플러그인 (Claude Code 안에서):
 #    /plugin marketplace add im-ian/claude-handoff
 #    /plugin install claude-handoff@claude-handoff
 
-# 2. CLI 설치 (소스에서 — npm 패키지는 추후 배포 예정)
-git clone https://github.com/im-ian/claude-handoff.git
-cd claude-handoff
+# 2. CLI (npm 패키지 준비 중):
+git clone https://github.com/im-ian/claude-handoff.git && cd claude-handoff
 npm install && npm run build && npm link
 
-# 3. PRIVATE hub 레포 생성 (GitHub 예시)
-gh repo create my-claude-hub --private
+# 3. Init — PRIVATE GitHub hub 저장소까지 만들어줌:
+handoff init --create-hub my-claude-hub --device my-mac
 
-# 4. 이 기기 등록
-handoff init --hub https://github.com/<you>/my-claude-hub.git --device my-macbook
-
-# 5. 올라갈 내용 미리보기
-handoff push --dry-run
-
-# 6. 실제 push
+# 4. Push:
 handoff push
 
-# 7. 다른 기기에서 플러그인 + CLI + `handoff init` 설치 후:
-handoff pull --from my-macbook --confirm
+# 5. 다른 머신에서 init + 플러그인 설치 후:
+handoff pull --from my-mac
 ```
 
-이게 전부입니다. 아래는 세부 사항.
+또는 Claude Code 안에서 `/handoff-init`, `/handoff-push`, `/handoff-pull` 사용 — 슬래시 명령어가 `AskUserQuestion`으로 프롬프트를 직접 처리하므로 CLI의 TTY 인터랙션에서 멈추지 않습니다.
 
 ---
 
 ## 설치
 
-설치할 것은 두 가지입니다:
-
-1. **Claude Code 슬래시 커맨드 플러그인** — Claude Code 안에서 `/handoff-init`, `/handoff-push` 등을 쓰게 해줍니다. *대부분의 사용자가 여기서 시작합니다.*
-2. **`handoff` CLI** — 슬래시 커맨드가 실제로 호출하는 도구. 플러그인 커맨드가 동작하려면 **반드시 필요**. CLI가 없으면 슬래시 커맨드는 전부 "command not found"로 실패합니다.
-
-플러그인 먼저 설치(사용자 진입점)하고 그 다음 CLI.
-
-### 1. 슬래시 커맨드 플러그인
-
-두 가지 설치 방법 중 **하나만** 선택하세요. 섞어 쓰면 커맨드가 중복 로드됩니다.
-
-#### 방법 A — Claude Code 마켓플레이스 ⭐ **일반 사용자에게 권장**
-
-레포 루트에 `.claude-plugin/marketplace.json` 마켓플레이스 매니페스트가 포함되어 있습니다. Claude Code 안에서:
+**플러그인** (Claude Code 안에서):
 
 ```
 /plugin marketplace add im-ian/claude-handoff
 /plugin install claude-handoff@claude-handoff
 ```
 
-이 방식을 권장하는 이유:
+업데이트는 `/plugin update`로 따라옵니다. 기여자용 로컬 심볼릭 링크 설치는 클론 후 `plugin/install.sh` 실행 — 심볼릭 링크라 `git pull` 한 번으로 새 명령어가 반영됩니다.
 
-- Claude Code 내장 플러그인 매니저가 관리. `/plugin update`로 업데이트.
-- 이 레포를 로컬에 clone할 필요 없음.
-- 네임스페이싱이 깔끔하고, `/plugin uninstall`로 제거 가능.
-
-설치 후 Claude Code 새 세션을 열어 `/handoff-status`가 자동완성에 뜨는지 확인하세요. 그 다음 2단계로 넘어가 CLI를 설치합니다.
-
-#### 방법 B — 로컬 symlink (레포 기여자 또는 최신 git 추적용)
-
-레포를 직접 편집하거나 merge되지 않은 변경 사항까지 `/handoff-*` 커맨드에 반영하고 싶을 때 선택하세요.
+**CLI** (Node.js ≥ 20):
 
 ```bash
-git clone https://github.com/im-ian/claude-handoff.git
-cd claude-handoff
-plugin/install.sh
+git clone https://github.com/im-ian/claude-handoff.git && cd claude-handoff
+npm install && npm run build && npm link    # `handoff`을 PATH에 추가
 ```
 
-`plugin/install.sh`가 `plugin/commands/*.md`를 `~/.claude/commands/`에 symlink로 연결합니다. 5개 커맨드가 설치됩니다:
+검증: `handoff --version` (→ `0.0.1`); `init` 전에는 `handoff status`가 `Not initialized`를 반환하는 게 정상.
 
-```
-linked: /handoff-init
-linked: /handoff-push
-linked: /handoff-pull
-linked: /handoff-diff
-linked: /handoff-status
-```
-
-symlink이기 때문에 이 레포를 `git pull`하면 새/업데이트된 커맨드가 자동으로 반영됩니다 — 재설치 불필요. 슬래시 커맨드는 Claude Code 세션이 다시 시작될 때 보입니다.
-
-symlink 세트 제거:
+**제거:**
 
 ```bash
-rm ~/.claude/commands/handoff-*.md
+/plugin uninstall claude-handoff@claude-handoff   # 플러그인
+npm unlink -g @im-ian/claude-handoff              # CLI
+rm -rf ~/.claude-handoff                          # 로컬 config + hub clone (원격 저장소는 그대로)
 ```
-
-symlink만 지우므로 안전합니다 — 이 레포의 원본 파일은 그대로 유지.
-
-### 2. CLI (필수)
-
-슬래시 커맨드는 `handoff` 바이너리를 감쌉니다. 아래 중 **한 가지**로 설치하세요.
-
-**npm에 배포된 이후** (준비 중 — [`docs/PUBLISHING.md`](docs/PUBLISHING.md) 참조):
-
-```bash
-npm install -g @im-ian/claude-handoff
-```
-
-**소스에서 설치** (npm 배포 전 현재 경로). Node.js 20 이상 필요:
-
-```bash
-# 아직 clone 안 했다면 (방법 A 사용자, 또는 이 단계까지 넘어온 방법 B 사용자)
-git clone https://github.com/im-ian/claude-handoff.git
-cd claude-handoff
-
-npm install
-npm run build
-npm link                 # PATH에 `handoff` 등록
-```
-
-pnpm 사용자 (먼저 `pnpm setup`으로 `PNPM_HOME` 설정 필요):
-
-```bash
-pnpm install && pnpm build && pnpm link --global
-```
-
-둘 다 확인:
-
-```bash
-handoff --version        # → 0.0.1
-```
-
-### 3. 전체 설치 확인
-
-```bash
-handoff --version        # CLI가 PATH에 있음
-handoff status           # `handoff init` 전이면 "Not initialized"가 정상 출력
-```
-
-Claude Code에서 `/handoff-`를 입력했을 때 5개 커맨드가 자동완성에 떠야 합니다. `/handoff-status`를 실행해보면 터미널 커맨드와 같은 결과가 나와야 정상.
-
-### 4. 완전 제거
-
-```bash
-# 플러그인 — 마켓플레이스 경로
-/plugin uninstall claude-handoff@claude-handoff      # Claude Code 안에서
-
-# 플러그인 — symlink 경로
-rm ~/.claude/commands/handoff-*.md
-
-# CLI
-npm uninstall -g @im-ian/claude-handoff              # npm으로 설치한 경우
-npm unlink -g @im-ian/claude-handoff                 # `npm link`로 설치한 경우
-# 또는: pnpm unlink --global @im-ian/claude-handoff
-
-# 기기별 상태 (config.json과 로컬 hub clone 삭제)
-rm -rf ~/.claude-handoff
-```
-
-GitHub의 hub 레포는 로컬 제거와 무관하게 그대로 유지됩니다.
 
 ---
 
 ## 명령어
 
-### `handoff init`
+| 슬래시 | CLI | 용도 |
+|---|---|---|
+| `/handoff-init` | `handoff init [--hub <url> \| --create-hub <name>] --device <name>` | 디바이스 등록, hub 연결 또는 생성 |
+| `/handoff-push` | `handoff push [--dry-run] [--skip-on-secrets \| --allow-secrets] [-m <msg>]` | hub로 스냅샷 (secret 스캔 포함) |
+| `/handoff-pull` | `handoff pull --from <device> [--dry-run] [--confirm]` | 다른 디바이스의 스냅샷 적용 |
+| `/handoff-diff` | `handoff diff [--from <device>] [-p] [--files-only]` | pull 시 변경사항 미리보기 |
+| `/handoff-status` | `handoff status` | 동기화 상태 + 등록된 디바이스 |
 
-현재 기기를 등록하고 hub 레포와 연결합니다.
-
-```bash
-handoff init --hub <url> --device <name> [--force] [--skip-clone]
-```
-
-- `--hub <url>` — hub 레포의 GitHub(HTTPS/SSH) 또는 `file://` URL
-- `--device <name>` — hub 내 폴더 이름으로 사용될 소문자 식별자 (예: `mbp-personal`, `work-desktop`). 기본값: 정규화된 호스트명
-- `--force` — 기존 `~/.claude-handoff/config.json`을 덮어씁니다
-- `--skip-clone` — 설정만 쓰고 hub는 clone하지 않습니다 (특정 credential helper로 수동 clone할 때 유용)
-
-`~/.claude-handoff/config.json`에 설정을 저장하고 `~/.claude-handoff/hub/`에 hub를 clone합니다.
-
-### `handoff push`
-
-현재 기기의 scope 내 파일을 hub로 스냅샷합니다.
-
-```bash
-handoff push [--dry-run] [--allow-secrets | --skip-on-secrets] [-m <msg>]
-```
-
-- `--dry-run` — 네트워크/파일 쓰기/커밋 없이 scope, 스캐너 결과, 예상 커밋 크기를 미리 봅니다
-- `--allow-secrets` — 시크릿 스캐너를 완전히 건너뜁니다. **확실히** 검토한 경우에만 사용
-- `--skip-on-secrets` — 비대화형: 감지된 파일을 자동으로 건너뜁니다. CI/스크립트 push에 적합
-- `-m, --message <msg>` — 커밋 메시지 덮어쓰기
-
-기본적으로 스캐너가 돌고, 감지된 파일마다 대화형 프롬프트가 뜹니다 (아래 *시크릿 스캐너* 참조).
-
-### `handoff pull`
-
-다른 기기의 스냅샷을 현재 기기에 적용합니다.
-
-```bash
-handoff pull [--from <device>] [--dry-run] [--confirm]
-```
-
-- `--from <device>` — 소스 기기. **생략 시** hub 내 모든 기기의 목록이 인터랙티브 picker로 뜹니다 (최근 push 순 정렬, 현재 기기 커서 기본). 비-TTY 환경에서는 알려진 디바이스 목록과 함께 에러로 대체됩니다
-- `--dry-run` — `~/.claude/`를 건드리지 않고 쓰여질 파일 목록만 출력
-- `--confirm` — diff 프리뷰를 보여주고 적용 전 y/N 확인
-
-pull은 **스냅샷에 없는 로컬 파일을 지우지 않습니다** — 그대로 남습니다.
-
-### `handoff diff`
-
-특정 기기에서 pull하면 뭐가 바뀔지 미리 봅니다.
-
-```bash
-handoff diff [--from <device>] [-p | --patch] [--files-only]
-```
-
-- `--from <device>` — 소스 기기 (기본값: 현재 기기의 마지막 push — push 전 점검용으로 유용)
-- `-p, --patch` — 수정된 파일마다 전체 unified diff를 인라인 표시
-- `--files-only` — 경로와 상태 마커만; 요약 없음
-
-출력 마커:
-
-- `+` pull이 새로 생성할 파일
-- `M` pull이 덮어쓸 text 파일 (`+X -Y` 라인 수 표시)
-- `B` pull이 덮어쓸 binary 파일
-- `L` 로컬에만 있음; pull이 **지우지 않음**
-
-### `handoff status`
-
-현재 sync 상태와 알려진 모든 기기를 보여줍니다.
-
-```bash
-handoff status
-```
-
-기기 이름, hub remote, 로컬 clone 경로, hub HEAD SHA, 그리고 hub에 등록된 모든 기기의 마지막 push 시각 및 파일 수를 출력합니다. 현재 기기는 `●`로 표시됩니다.
+각 서브커맨드에 `--help`로 전체 플래그 확인.
 
 ---
 
-## Sync 대상 (scope)
+## 동기화 대상 (scope)
 
-`claude-handoff`는 보수적인 **allowlist** 방식을 씁니다. `~/.claude/` 아래의 알 수 없는 파일이 실수로 유출되는 일을 막기 위해서입니다.
+알 수 없는 파일이 실수로 새지 않도록 **allowlist** 방식.
 
-### 기본 포함
-
-- `agents/**`
-- `commands/**`
-- `hooks/**`
-- `skills/**`
-- `rules/**`
-- `mcp-configs/**`
-- 최상위 `*.md` 파일 (예: `CLAUDE.md`, `AGENTS.md`)
-
-### 하드 제외 (include 패턴과 겹쳐도 항상 제외)
-
-런타임 상태, 로그, 크레덴셜:
-
-- `projects/**`, `sessions/**`, `session-*/**`, `shell-snapshots/**`
-- `cache/**`, `paste-cache/**`, `telemetry/**`, `metrics/**`
-- `backups/**`, `file-history/**`, `ide/**`, `tasks/**`, `downloads/**`
-- `**/*.log`, `**/*.jsonl`
-- `**/.credentials.json`, `**/.env`, `**/.env.*`, `**/*credentials*`, `**/*secret*`
-- `.DS_Store`
-
-### Scope 커스터마이즈
-
-`~/.claude-handoff/config.json`의 `scope` 섹션을 편집:
-
-```json
-"scope": {
-  "include": ["agents/**", "commands/**", "hooks/**", "skills/**", "rules/**", "*.md"],
-  "optIn": [],
-  "excludeExtra": ["skills/very-personal/**"]
-}
-```
-
-`excludeExtra`는 하드 제외 리스트 위에 쌓입니다.
+- **기본 포함:** `agents/**`, `commands/**`, `hooks/**`, `skills/**`, `rules/**`, `scripts/**`, `mcp-configs/**`, `settings.json`, 최상위 `*.md`
+- **항상 제외 (hard-deny):** `projects/**`, `sessions/**`, `cache/**`, `telemetry/**`, `backups/**`, `*.log`, `*.jsonl`, `**/.credentials.json`, `**/.env*`, `**/*credentials*`, `**/*secret*`, `.DS_Store`
+- **커스텀:** `~/.claude-handoff/config.json`의 `scope.include` / `scope.excludeExtra` 편집. `excludeExtra`는 hard-deny 위에 누적됩니다.
 
 ---
 
-## 토큰화 — 기기 간 경로가 살아남는 방법
+## 토큰화 (Tokenization)
 
-**핵심 문제.** Hook과 설정 파일은 흔히 `/Users/alice/.claude/hooks/format.sh` 같은 절대 경로를 포함합니다. 이 파일을 username이 `bob`인 기기에 그대로 sync하면 모든 경로가 깨집니다.
+Hook 파일에는 보통 `/Users/alice/.claude/hooks/format.sh` 같은 절대 경로가 들어있습니다. 그대로 sync → 사용자명이 `bob`인 머신 → 모든 경로가 깨짐.
 
-**해결.** 파일이 기기를 떠나기 전, `push`는 특정 리터럴 두 개를 플레이스홀더로 치환합니다:
+Push 시 두 리터럴이 placeholder로 바뀌고, pull 시 로컬 머신의 값으로 다시 치환됩니다:
 
-| 토큰               | 치환 대상                                |
-|--------------------|------------------------------------------|
-| `${HANDOFF_CLAUDE}`| `$HOME/.claude` (절대 경로)               |
-| `${HANDOFF_HOME}`  | `$HOME`                                   |
+| 토큰 | 대체 대상 |
+|---|---|
+| `${HANDOFF_CLAUDE}` | `$HOME/.claude` (절대 경로) |
+| `${HANDOFF_HOME}` | `$HOME` |
 
-`pull` 시에는 플레이스홀더가 로컬 기기의 실제 값으로 복원됩니다. 예를 들어 `"command": "node \"/Users/alice/.claude/hooks/x.js\""` 는 hub에서는 `"command": "node \"${HANDOFF_CLAUDE}/hooks/x.js\""` 로 저장되고, 받는 쪽 기기에서는 `"command": "node \"/Users/bob/.claude/hooks/x.js\""` 로 자동 변환됩니다.
+따라서 `"command": "node \"/Users/alice/.claude/hooks/x.js\""`는 hub에서 `"node \"${HANDOFF_CLAUDE}/hooks/x.js\""`가 되고, bob의 머신에서는 `"node \"/Users/bob/.claude/hooks/x.js\""`로 자동 resolve됩니다. 가장 긴 패턴이 우선 매칭돼서 경로 중첩이 깨지지 않아요.
 
-가장 긴 패턴이 우선합니다: `/Users/alice/.claude`가 `/Users/alice`보다 먼저 매칭되어 경로 계층이 올바르게 유지됩니다.
-
-### Opt-in: `${HANDOFF_USER}` / `${HANDOFF_HOSTNAME}`
-
-Bare username과 hostname 치환은 **기본 활성화되지 않습니다**. `alice` 같은 짧은 문자열이 주석이나 자연어 텍스트에서 다른 단어(`malice`, `palace`)의 부분으로 잘못 매칭될 수 있기 때문입니다. hook이 bare username을 참조한다면 `substitutions`로 opt-in:
-
-```json
-"substitutions": [
-  { "from": "alice", "to": "${HANDOFF_USER}" }
-]
-```
+`${HANDOFF_USER}` / `${HANDOFF_HOSTNAME}`도 정의돼있지만 **기본 비활성** — 짧은 사용자명이 일반 텍스트(`alice` → `malice`/`palace`)에 오탐되기 때문. 필요하면 config의 `substitutions: [{ "from": "alice", "to": "${HANDOFF_USER}" }]`로 opt-in.
 
 ---
 
-## 시크릿 스캐너
+## Secret 스캐너
 
-파일이 기기를 떠나기 전에, scope 내 모든 text 파일 (≤ 2 MB, 바이너리 제외)을 아래 패턴으로 스캔합니다:
+Scope 내 모든 텍스트 파일(≤ 2 MB)에 대해: Anthropic/OpenAI/GitHub/Google/AWS/Slack 토큰, private key 헤더, JWT, 일반적인 `password=` / `api_key=` 리터럴 검사.
 
-- Anthropic 키 (`sk-ant-*`)
-- OpenAI 키 (`sk-*`, `sk-proj-*`)
-- GitHub 토큰 (`gh[pousr]_*`)
-- Google API 키 (`AIza*`)
-- AWS 액세스 키 ID (`AKIA*`)
-- Slack 토큰 (`xox[baprs]-*`)
-- Private key 블록 헤더
-- JWT
-- Bearer 토큰
-- 엔트로피 충분한 일반 `api_key=` / `password=` 리터럴
+- **인터랙티브 (터미널, TTY).** 파일별: *건너뛰기* / *그래도 업로드* / *전체 중단*. Public/unknown 가시성 hub는 추가로 `yes` 타이핑 확인 요구.
+- **비인터랙티브 (CI, Bash tool, 슬래시 명령어).** `--skip-on-secrets` (탐지된 파일 자동 스킵) 또는 `--allow-secrets` (스캔 전체 우회) 중 하나를 명시. `/handoff-push` 슬래시 명령은 `--dry-run` preflight로 finding을 먼저 보여준 뒤 `AskUserQuestion`으로 정책을 결정합니다.
+- **False positive** (Django `SECRET_KEY` 예제, 테스트 픽스처, password 패턴 문서) → 파일 경로를 config의 `secretPolicy.allow`에 추가. 수동 편집만 — 프롬프트 클릭 피로로 allow list가 슬그머니 늘어나는 걸 방지.
 
-### 감지 시 동작
+---
 
-**인터랙티브 (TTY).** 감지된 파일마다 선택:
+## Hub 저장소 레이아웃
 
-- *skip this file* — 스냅샷에서 제외
-- *upload anyway* — 그대로 포함
-- *abort entire push* — 아무것도 올리지 않고 중단
-
-**Hub privacy 게이트.** 프롬프트를 띄우기 전에, CLI가 `gh repo view <owner>/<repo> --json isPrivate`를 호출해서 hub를 `private`, `public`, `unknown` (비-GitHub)으로 분류합니다. hub가 `private`이 아닐 경우, *upload anyway*를 선택해도 두 번째 프롬프트에서 `yes`를 직접 타이핑해야 합니다. 시크릿이 비-private hub에 도달할 수 있는 유일한 경로이며, 항상 명시적 동작을 요구합니다.
-
-**비-인터랙티브 (CI, Bash 도구, 파이프라인).** 스캐너는 추측하지 않습니다. 아래 중 하나를 명시해야 합니다:
-
-- `--skip-on-secrets` — 감지된 파일 자동 스킵
-- `--allow-secrets` — 스캐너 완전 우회
-
-그 외에는 push가 중단됩니다.
-
-### False positive 처리
-
-교육용 콘텐츠 (Django `SECRET_KEY = "..."` 예시, 테스트 픽스처, API 키 문서)는 일반 패턴에 자주 걸립니다. 해당 경로를 `secretPolicy.allow` 목록에 추가하면 영구적으로 silence됩니다:
-
-```json
-"secretPolicy": {
-  "allow": [
-    "skills/django-security/SKILL.md",
-    "skills/django-tdd/SKILL.md",
-    "commands/kotlin-test.md"
-  ]
-}
+```
+<hub>/
+├── devices/<name>/
+│   ├── snapshot/         # 토큰화된 scope 파일
+│   └── version.json      # 타임스탬프, 파일 개수, 바이트 수, host
+└── manifest.json         # 모든 디바이스 레지스트리
 ```
 
-프롬프트로부터 자동 기억되는 대신 JSON을 수동 편집해야 합니다 — 실수로 allow 목록이 조용히 늘어나는 것을 방지하기 위함입니다.
+Hub의 git commit 하나 = 한 디바이스의 push 한 번. **N개 디바이스 × M개 버전**이 git 히스토리로 자연스럽게 표현됩니다. 디바이스 간 merge는 없음 — `pull --from X`는 항상 X의 전체 스냅샷을 원자적으로 적용.
 
 ---
 
 ## 설정
 
-`~/.claude-handoff/config.json`:
+`~/.claude-handoff/config.json` — 전체 스키마는 [`docs/DESIGN.md`](docs/DESIGN.md) 참조.
 
 ```json
 {
-  "device": "mbp-personal",
-  "hubRemote": "https://github.com/<you>/my-claude-hub.git",
+  "device": "my-mac",
+  "hubRemote": "https://github.com/<you>/<hub>.git",
   "claudeDir": "/Users/<you>/.claude",
-  "substitutions": [],
-  "scope": {
-    "include": ["agents/**", "commands/**", "hooks/**", "skills/**", "rules/**", "mcp-configs/**", "*.md"],
-    "optIn": [],
-    "excludeExtra": []
-  },
-  "secretPolicy": {
-    "allow": []
-  }
+  "scope": { "include": ["agents/**", "..."], "optIn": [], "excludeExtra": [] },
+  "secretPolicy": { "allow": [] },
+  "substitutions": []
 }
 ```
 
-세밀한 제어를 위해 파일을 직접 편집하세요 — 다음 CLI 실행 시 변경사항이 반영됩니다. 큰 변경 전 백업 권장.
+`CLAUDE_HANDOFF_HOME` 환경변수로 config/hub 위치 변경 가능 (기본 `~/.claude-handoff/`) — 안전한 시범 실행(`CLAUDE_HANDOFF_HOME=/tmp/trial handoff init …`)이나 공유 환경에서의 사용자별 격리에 유용.
 
 ---
 
-## Hub 레포 구조
+## 트러블슈팅
 
-모든 push는 `devices/<device-name>/` 아래에 저장됩니다:
+- **`fatal: could not read Password for 'https://…@github.com'`** — hub clone에 로컬 credential helper 설정:
+  ```bash
+  git -C ~/.claude-handoff/hub config --local credential.helper '!gh auth git-credential'
+  ```
+  여러 계정 사용 시: `gh auth switch --user <login>` 먼저.
 
-```
-<your-hub>/
-├── devices/
-│   ├── mbp-personal/
-│   │   ├── snapshot/          # 이 기기의 토큰화된 scope 파일들
-│   │   └── version.json       # 메타데이터: 타임스탬프, 파일 수, 바이트 수, 호스트
-│   └── work-desktop/
-│       └── ...
-└── manifest.json              # 모든 기기의 레지스트리
-```
+- **Hub 가시성이 `UNKNOWN`** — GitHub 외 호스트이거나 `gh` 미설치/미인증. Public으로 간주되어 finding 있는 파일마다 `yes` 타이핑 확인 요구.
 
-hub의 각 git 커밋은 한 기기의 한 번의 push입니다 — **N개 기기 × M개 버전**이 디렉토리 구조와 git 히스토리에서 자연스럽게 발현됩니다. 기기 간 머지는 없습니다; 각 push는 자기 기기의 `snapshot/`을 통째로 교체하고, `pull --from X`는 항상 X의 완전한 상태를 적용합니다.
-
----
-
-## Claude Code 플러그인 세부
-
-설치는 위의 *설치* 섹션의 두 방법 중 하나로 진행. 슬래시 커맨드와 각 인자:
-
-| 슬래시 커맨드     | CLI 대응         | 통과 인자 |
-|-------------------|------------------|-----------|
-| `/handoff-init`   | `handoff init`   | `--hub <url> --device <name> --skip-clone --force` |
-| `/handoff-push`   | `handoff push`   | `--dry-run --allow-secrets --skip-on-secrets -m <msg>` |
-| `/handoff-pull`   | `handoff pull`   | `--from <device> --dry-run --confirm` |
-| `/handoff-diff`   | `handoff diff`   | `--from <device> -p --files-only` |
-| `/handoff-status` | `handoff status` | — |
-
-인자는 `$ARGUMENTS`로 전달되므로 `/handoff-pull --from work-pc --confirm`이 CLI와 동일하게 동작합니다.
-
-### 인터랙티브 프롬프트 주의
-
-Claude Code의 Bash 도구는 TTY가 아니라서 인터랙티브 프롬프트가 필요한 커맨드는 멈추지 않고 에러로 빠집니다. CLI는 에러 메시지로 "터미널에서 직접 실행하거나 해당 비-인터랙티브 플래그를 쓰라"고 안내합니다. 영향받는 흐름:
-
-- `--hub` / `--device` 인자 없이 `handoff init` → 터미널에서 실행하거나 두 인자 모두 명시
-- `handoff push`의 스캐너 감지 상황 → `--skip-on-secrets` 또는 `--allow-secrets`
-- 다기기 hub에서 `--from` 없이 `handoff pull` → `--from <device>` 명시
-- `handoff pull --confirm` → 터미널에서 실행
-
-각 커맨드 파일 본문에서 이 fallback을 안내하므로 agent가 사용자에게 전달할 수 있습니다.
-
----
-
-## 환경 변수
-
-### `CLAUDE_HANDOFF_HOME`
-
-config/hub 위치를 덮어씁니다 (기본값 `~/.claude-handoff/`). 용도:
-
-- **안전한 시범 실행.** `CLAUDE_HANDOFF_HOME=/tmp/trial handoff init ...` 은 홈 대신 `/tmp/`에 설정을 쓰므로 실제 상태가 섞이지 않습니다
-- **다중 사용자 기기 / 컨테이너.** 사용자별로 상태 격리
-- **테스트.** 현재 테스트 스위트는 아직 필요하지 않지만, 향후 통합 테스트 작성이 간단해집니다
-
----
-
-## Troubleshooting
-
-### `fatal: could not read Password for 'https://…@github.com'`
-
-hub clone 내부의 `git push`와 `git fetch`가 인증을 요구합니다. 글로벌 git 설정을 건드리지 않는 가장 깔끔한 해법은 **로컬** credential helper:
-
-```bash
-git -C ~/.claude-handoff/hub config --local credential.helper '!gh auth git-credential'
-```
-
-이것은 현재 활성화된 `gh` 계정으로 인증을 위임합니다. 여러 GitHub 계정을 쓴다면 push 전에 `gh auth switch --user <login>`으로 전환하세요.
-
-Helper가 아직 설정되지 않은 첫 clone 시:
-
-```bash
-git -c credential.helper='!gh auth git-credential' clone <hub-url> ~/.claude-handoff/hub
-```
-
-그 다음 `handoff init --hub <url> --device <name> --skip-clone`을 다시 실행해서 기존 clone을 건드리지 않고 설정만 씁니다.
-
-### Hub visibility가 `UNKNOWN`으로 나옴
-
-- Hub가 GitHub이 아닌 호스트 (GitLab, Bitbucket, self-hosted)에 있거나
-- GitHub URL이 잘못되었거나
-- `gh` CLI가 없거나 인증되지 않은 경우
-
-`claude-handoff`는 `unknown`을 잠재적 public으로 취급하여 실제 public 레포와 동일한 `yes` 타이핑 확인을 요구합니다. `private` 인식을 복구하려면 GitHub에 호스팅하고 `gh auth login`을 실행하세요.
-
-### 같은 교육 콘텐츠 파일에 대해 스캐너가 계속 prompt함
-
-해당 경로를 `config.json`의 `secretPolicy.allow`에 추가하세요. 다음 push부터 스캐너가 해당 파일을 완전히 건너뜁니다.
-
-### Scope 변경 후 diff/pull에 많은 변경이 나타남
-
-Scope가 넓어짐 → 새 파일이 `added`로 표시됨. Scope가 좁아짐 → 이전에 sync되던 파일이 더 이상 커버되지 않지만, hub 스냅샷이 자동으로 정리되지는 않음. 해당 기기에서 `handoff push`를 실행해서 현재 scope 기준으로 스냅샷을 재작성하세요.
-
----
-
-## 설계 문서
-
-전체 아키텍처 설명은 [`docs/DESIGN.md`](docs/DESIGN.md)에 있습니다: hub 레이아웃, 버저닝 모델, 토큰화 규칙, scope 의미론, 시크릿 스캐너 플로우, non-goals.
+- **Scope 변경 후 churn** — 확장 시 새 파일이 `added`로 표시; 축소 시 hub의 오래된 파일이 자동 정리되지 않음 (auto-prune 없음). 해당 디바이스에서 다시 push해서 스냅샷을 재작성하면 됩니다.
 
 ---
 
 ## 상태
 
-동작하는 MVP. 최소 한 대의 기기에서 실사용 중. npm 배포는 아직 안 됨.
+작동하는 MVP, 실제 운영 중. CLI 소스 빌드만 가능; npm 배포 예정.
 
-### 로드맵
-
-- [ ] `handoff log --device <name>` — 기기별 push 히스토리
-- [ ] `handoff pull --at <sha>` — 특정 히스토리 버전 복원
-- [ ] `handoff init`이 로컬 credential helper를 자동 설정
-- [ ] npm publish (`npm install -g claude-handoff`)
-- [ ] Claude Code 플러그인 마켓플레이스 등록
+**로드맵:** `handoff log --device <name>`, `handoff pull --at <sha>`, `init` 시 credential helper 자동 설정, npm 배포.
 
 ---
 
-## 선행 작품
+## 선행 사례
 
-- [`claude-teleport`](https://github.com/anthropics/claude-code-plugins) — 일회성 "내 설정 빔으로 쏘기" 플로우, 기기별 인지 없음
-- Dotfile 매니저 (`chezmoi`, `yadm`, `stow`) — 범용이지만 경로 차이는 수동 템플릿링 필요
+- [`claude-teleport`](https://github.com/anthropics/claude-code-plugins) — 일회성 beam, 디바이스 인식 없음.
+- Dotfile 매니저 (`chezmoi`, `yadm`, `stow`) — 범용 도구라 경로 차이 처리에 수동 템플릿 필요.
 
-`claude-handoff`는 Claude Code의 설정 surface에 특화되어 있으며, 어떤 부분이 기기별이고 어떤 부분이 이식 가능한지 내장 인식을 가지고 있습니다. 기본값도 시크릿이 나가지 않도록 설계됐습니다.
+`claude-handoff`는 Claude Code 전용 — 어떤 부분이 머신 종속이고 어떤 부분이 이식 가능한지 알고, secret이 새지 않는 기본값을 가집니다.
 
 ---
 
