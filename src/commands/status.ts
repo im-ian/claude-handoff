@@ -1,7 +1,7 @@
 import pc from 'picocolors';
 import { paths, readConfig } from '../core/config.js';
 import { readManifest } from '../core/manifest.js';
-import { ensureClone, git } from '../core/git.js';
+import { ensureClone, git, pullLatest } from '../core/git.js';
 
 export async function statusCommand(_opts: unknown): Promise<void> {
   const cfg = await readConfig();
@@ -17,6 +17,9 @@ export async function statusCommand(_opts: unknown): Promise<void> {
 
   try {
     await ensureClone(paths.hubDir, cfg.hubRemote);
+    // Keep the local clone's working tree in sync so the manifest reflects other
+    // devices' recent pushes. Best-effort: stale fetch > crash for offline hosts.
+    await pullLatest(paths.hubDir).catch(() => undefined);
     const manifest = await readManifest(paths.hubDir);
     const headResult = await git(paths.hubDir, ['rev-parse', 'HEAD']).catch(() => null);
     const headSha = headResult?.stdout.trim() ?? '(no commits yet)';

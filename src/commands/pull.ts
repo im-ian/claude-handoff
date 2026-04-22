@@ -16,6 +16,7 @@ import {
 } from '../core/fs-util.js';
 import { diffTrees } from '../core/diff-engine.js';
 import { formatDiffReport, hasRelevantChanges } from '../core/diff-format.js';
+import type { DeviceConfig, HubManifest } from '../types.js';
 
 export interface PullOptions {
   from?: string;
@@ -28,8 +29,9 @@ export async function pullCommand(opts: PullOptions): Promise<void> {
   await ensureClone(paths.hubDir, cfg.hubRemote);
   await pullLatest(paths.hubDir);
 
-  const source = (opts.from ?? cfg.device).trim();
   const manifest = await readManifest(paths.hubDir);
+  const source = await resolveSource(opts, cfg, manifest);
+  if (source === null) return;
 
   if (!manifest.devices[source]) {
     console.error(pc.red(`Unknown device "${source}".`));
@@ -125,4 +127,70 @@ export async function pullCommand(opts: PullOptions): Promise<void> {
   if (source !== cfg.device) {
     console.log(pc.dim('Pulled files within scope were overwritten; files outside scope are untouched.'));
   }
+}
+
+/**
+ * Resolve which device to pull from.
+ * - If opts.from is provided, use it verbatim.
+ * - Else if the hub has exactly 0 devices: abort with guidance.
+ * - Else if the hub has exactly 1 device: auto-select it.
+ * - Else in a TTY: interactive picker sorted by most recent push, current device pre-selected.
+ * - Else (non-TTY, N>1): abort with a list of options so the caller can pass --from next time.
+ * Returns the chosen device name, or null if the user aborted / no selection is possible.
+ */
+async function resolveSource(
+  opts: PullOptions,
+  cfg: DeviceConfig,
+  manifest: HubManifest,
+): Promise<string | null> {
+  if (opts.from && opts.from.trim().length > 0) return opts.from.trim();
+
+  const entries = Object.entries(manifest.devices);
+
+  if (entries.length === 0) {
+    console.error(pc.red('No devices registered in the hub yet.'));
+    console.error(pc.dim('Run `handoff push` from at least one device first.'));
+    return null;
+  }
+
+  if (entries.length === 1) {
+    const only = entries[0]![0];
+    console.log(pc.dim(`Only one device in the hub — selecting ${pc.cyan(only)}.`));
+    return only;
+  }
+
+  if (!process.stdin.isTTY) {
+    console.error(pc.red('Multiple devices in hub and stdin is not a TTY.'));
+    console.error(pc.dim(`Re-run with --from <device>. Known: ${entries.map(([n]) => n).join(', ')}`));
+    return null;
+  }
+
+  const sortedEntries = entries.sort((a, b) =>
+    b[1].latest.pushedAt.localeCompare(a[1].latest.pushedAt),
+  );
+  const choices = sortedEntries.map(([name, info]) => {
+    const suffix = name === cfg.device ? pc.dim(' (this device)') : '';
+    const when = new Date(info.latest.pushedAt).toLocaleString();
+    const meta = pc.dim(`— ${info.latest.fileCount} files, ${when}`);
+    return { title: `${name}${suffix}  ${meta}`, value: name };
+  });
+  const currentIdx = choices.findIndex((c) => c.value === cfg.device);
+
+  const response = await prompts(
+    {
+      type: 'select',
+      name: 'selected',
+      message: 'Pull from which device?',
+      choices,
+      initial: currentIdx >= 0 ? currentIdx : 0,
+    },
+    { onCancel: () => ({ selected: null }) },
+  );
+
+  const selected = response.selected as string | null | undefined;
+  if (!selected) {
+    console.log(pc.yellow('Pull aborted (no device selected).'));
+    return null;
+  }
+  return selected;
 }
