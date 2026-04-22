@@ -12,6 +12,7 @@ export interface InitOptions {
   hub?: string;
   device?: string;
   force?: boolean;
+  skipClone?: boolean;
 }
 
 const DEVICE_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/;
@@ -71,9 +72,18 @@ export async function initCommand(opts: InitOptions): Promise<void> {
   await writeConfig(config);
   console.log(pc.green(`✓ wrote ${paths.configFile}`));
 
-  console.log(pc.dim(`Cloning hub into ${paths.hubDir}…`));
-  await ensureClone(paths.hubDir, hubRemote);
-  console.log(pc.green(`✓ hub ready`));
+  if (opts.skipClone) {
+    console.log(pc.dim(`--skip-clone: skipping hub clone (useful for dry-run setups).`));
+  } else {
+    console.log(pc.dim(`Cloning hub into ${paths.hubDir}…`));
+    try {
+      await ensureClone(paths.hubDir, hubRemote);
+      console.log(pc.green(`✓ hub ready`));
+    } catch (err) {
+      console.log(pc.yellow(`⚠ hub clone failed: ${(err as Error).message}`));
+      console.log(pc.dim(`  Config is written; fix the hub URL or re-run with --skip-clone to continue.`));
+    }
+  }
 
   console.log();
   console.log(pc.bold('Next:'));

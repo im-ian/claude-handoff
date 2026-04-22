@@ -101,10 +101,12 @@ Before any file leaves the device, `push` scans every scoped text file (binaries
 ### Local state
 
 ```
-~/.claude-handoff/
+$CLAUDE_HANDOFF_HOME (default ~/.claude-handoff)/
 ├── config.json        # device name, hub URL, tokens, scope overrides
 └── hub/               # local git clone of the hub repo
 ```
+
+Set `CLAUDE_HANDOFF_HOME` to a scratch path (e.g. `/tmp/trial`) to experiment without touching your real setup. Combine with `handoff init --skip-clone` for a placeholder hub, then `handoff push --dry-run` to preview scope + scan + tokenization results.
 
 ### Device config (`~/.claude-handoff/config.json`)
 
@@ -130,7 +132,7 @@ Before any file leaves the device, `push` scans every scoped text file (binaries
 | Command | Purpose |
 |---------|---------|
 | `handoff init` | Register this device, clone/link hub repo, write local config |
-| `handoff push` | Tokenize + copy scoped files to `hub/devices/<this>/snapshot/`, commit, push |
+| `handoff push [--dry-run]` | Tokenize + copy scoped files to `hub/devices/<this>/snapshot/`, commit, push; `--dry-run` reports scope/scan/size with zero side effects |
 | `handoff pull [--from <device>] [--confirm]` | Resolve + apply another device's snapshot to `~/.claude/`; `--confirm` shows a diff preview and asks y/N before applying |
 | `handoff diff [--from <device>] [-p]` | Preview changes before a pull — token-aware, binary-aware, shows unified patches |
 | `handoff status` | Show current device, hub remote, known devices, last push timestamps |

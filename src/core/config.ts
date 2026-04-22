@@ -4,7 +4,8 @@ import os from 'node:os';
 import { z } from 'zod';
 import type { DeviceConfig } from '../types.js';
 
-const CONFIG_DIR = path.join(os.homedir(), '.claude-handoff');
+// Set CLAUDE_HANDOFF_HOME to isolate state (useful for dry-runs / tests / multi-user machines).
+const CONFIG_DIR = process.env.CLAUDE_HANDOFF_HOME ?? path.join(os.homedir(), '.claude-handoff');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const HUB_DIR = path.join(CONFIG_DIR, 'hub');
 

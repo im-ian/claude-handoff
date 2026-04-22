@@ -11,16 +11,23 @@ import { upsertDevice } from '../core/manifest.js';
 import { isBinaryFile, copyFileEnsureDir } from '../core/fs-util.js';
 import { groupByFile, scanFiles, type SecretFinding } from '../core/secret-scanner.js';
 import { detectHubVisibility, type HubVisibility } from '../core/hub-privacy.js';
-import type { DeviceVersion } from '../types.js';
+import type { DeviceConfig, DeviceVersion } from '../types.js';
 
 export interface PushOptions {
   message?: string;
   allowSecrets?: boolean;
   skipOnSecrets?: boolean;
+  dryRun?: boolean;
 }
 
 export async function pushCommand(opts: PushOptions): Promise<void> {
   const cfg = await requireConfig();
+
+  if (opts.dryRun) {
+    await pushDryRun(cfg, opts);
+    return;
+  }
+
   await ensureClone(paths.hubDir, cfg.hubRemote);
   await pullLatest(paths.hubDir).catch(() => undefined);
 
@@ -109,6 +116,79 @@ export async function pushCommand(opts: PushOptions): Promise<void> {
     return;
   }
   console.log(pc.green(`✓ pushed ${allowedFiles.length} files as ${cfg.device}@${sha.slice(0, 7)}`));
+}
+
+// ---------- dry-run ----------
+
+async function pushDryRun(cfg: DeviceConfig, opts: PushOptions): Promise<void> {
+  console.log(pc.bold('Dry-run — no network, no writes, no commits, no pushes.'));
+  console.log();
+  console.log(pc.bold('Device:     ') + pc.cyan(cfg.device));
+  console.log(pc.bold('Hub remote: ') + cfg.hubRemote);
+  console.log(pc.bold('Claude dir: ') + cfg.claudeDir);
+  console.log();
+
+  const files = await listScopedFiles(cfg.claudeDir, cfg.scope);
+  console.log(pc.bold(`Scope matched ${files.length} file(s):`));
+  for (const f of files) console.log(`  ${pc.dim('•')} ${f}`);
+  if (files.length === 0) {
+    console.log(pc.yellow('  Nothing matched — check your scope config.'));
+    return;
+  }
+  console.log();
+
+  let scannerNote = '';
+  if (opts.allowSecrets) {
+    scannerNote = pc.dim('Scanner bypassed (--allow-secrets).');
+  } else {
+    const filesToScan = files.filter((f) => !cfg.secretPolicy.allow.includes(f));
+    const findings = await scanFiles(cfg.claudeDir, filesToScan);
+    if (findings.length > 0) {
+      const visibility = await detectHubVisibility(cfg.hubRemote);
+      printScanReport(findings, visibility, cfg.hubRemote);
+      scannerNote = pc.yellow(
+        '(dry-run — a real push would prompt you per file: skip / upload anyway / abort)',
+      );
+    } else {
+      scannerNote = pc.green('No secrets detected.');
+    }
+  }
+
+  const subs = buildSubs({
+    claudeDir: cfg.claudeDir,
+    home: os.homedir(),
+    extra: cfg.substitutions,
+  });
+
+  let totalBytes = 0;
+  let textFiles = 0;
+  let binaryFiles = 0;
+  for (const rel of files) {
+    const src = path.join(cfg.claudeDir, rel);
+    if (await isBinaryFile(src)) {
+      binaryFiles++;
+      totalBytes += (await fs.stat(src)).size;
+    } else {
+      textFiles++;
+      const raw = await fs.readFile(src, 'utf8');
+      totalBytes += Buffer.byteLength(tokenize(raw, subs));
+    }
+  }
+
+  console.log(scannerNote);
+  console.log();
+  console.log(pc.bold('Projected push:'));
+  console.log(`  Files:      ${files.length} (${textFiles} text, ${binaryFiles} binary)`);
+  console.log(`  Bytes:      ${formatBytes(totalBytes)} after tokenization`);
+  console.log(`  Target:     devices/${cfg.device}/snapshot/ on hub`);
+  const msg = opts.message ?? `push: ${cfg.device} — ${files.length} files`;
+  console.log(`  Commit msg: ${msg}`);
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(2)} MB`;
 }
 
 // ---------- secret review ----------
@@ -201,7 +281,6 @@ async function reviewSecrets(
       continue;
     }
 
-    // upload — require typed "yes" when visibility is not confirmed private
     if (visibility !== 'private') {
       const confirm = await prompts(
         {

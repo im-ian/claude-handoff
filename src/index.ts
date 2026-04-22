@@ -19,6 +19,7 @@ program
   .option('--hub <url>', 'Hub repository URL')
   .option('--device <name>', 'Device name (default: hostname)')
   .option('--force', 'Overwrite existing config')
+  .option('--skip-clone', 'Write config only; do not clone the hub (useful for dry-run setups)')
   .action(initCommand);
 
 program
@@ -27,6 +28,7 @@ program
   .option('-m, --message <msg>', 'Commit message override')
   .option('--allow-secrets', 'Bypass the secret scanner entirely (use only when you are sure)')
   .option('--skip-on-secrets', 'Non-interactive: auto-skip any file with detected secret findings')
+  .option('--dry-run', 'Preview scope, scan, and tokenized size without touching the hub')
   .action(pushCommand);
 
 program
