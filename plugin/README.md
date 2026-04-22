@@ -18,7 +18,7 @@ Arguments are passed through via `$ARGUMENTS`, so `/handoff-pull --from work-pc 
 
 ### Requirements
 
-- `handoff` CLI on your PATH. Install via `pnpm link --global` from the repo root, or (once published) `npm install -g claude-handoff`.
+- `handoff` CLI on your PATH. From the repo root: `npm link` (simplest) or `pnpm link --global` (pnpm users, requires `pnpm setup` first). Once published: `npm install -g claude-handoff`.
 - Claude Code with `~/.claude/commands/` writable (the usual default).
 
 ### One-liner

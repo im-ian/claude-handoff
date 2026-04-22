@@ -32,7 +32,8 @@ done
 if ! command -v handoff >/dev/null 2>&1; then
   echo ""
   echo "⚠ \`handoff\` is not on your PATH. The slash commands will fail until the CLI is installed."
-  echo "  For local development: from the repo root, run \`pnpm link --global\`."
+  echo "  From the repo root:    npm link          (works on any Node install)"
+  echo "  pnpm users:            pnpm link --global   (requires \`pnpm setup\` first)"
   echo "  Once published:        npm install -g claude-handoff"
 fi
 
