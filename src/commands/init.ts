@@ -1,6 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
+import { execa } from 'execa';
 import prompts from 'prompts';
 import pc from 'picocolors';
 import { paths, readConfig, writeConfig } from '../core/config.js';
@@ -11,14 +12,25 @@ import type { DeviceConfig } from '../types.js';
 
 export interface InitOptions {
   hub?: string;
+  createHub?: string;
   device?: string;
   force?: boolean;
   skipClone?: boolean;
 }
 
 const DEVICE_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,39}$/;
+const REPO_NAME_PATTERN = /^[A-Za-z0-9._-]{1,100}$/;
 
 export async function initCommand(opts: InitOptions): Promise<void> {
+  if (opts.hub && opts.createHub) {
+    console.error(pc.red('--hub and --create-hub are mutually exclusive — pick one.'));
+    process.exit(1);
+  }
+  if (opts.createHub && !REPO_NAME_PATTERN.test(opts.createHub)) {
+    console.error(pc.red(`Invalid repo name "${opts.createHub}" for --create-hub.`));
+    process.exit(1);
+  }
+
   const existing = await readConfig();
   const isUpdate = existing !== null;
   // Preserve scope/secretPolicy/substitutions on an update unless --force is passed.
@@ -49,10 +61,11 @@ export async function initCommand(opts: InitOptions): Promise<void> {
   const defaultHub = keepEditable ? existing!.hubRemote : '';
   const claudeDir = existing?.claudeDir ?? path.join(os.homedir(), '.claude');
 
+  const skipHubPrompt = Boolean(opts.hub || opts.createHub);
   const answers = await prompts(
     [
       {
-        type: opts.hub ? null : 'text',
+        type: skipHubPrompt ? null : 'text',
         name: 'hubRemote',
         message: 'Hub repo URL (e.g. git@github.com:you/my-claude-hub.git)',
         initial: defaultHub,
@@ -70,7 +83,12 @@ export async function initCommand(opts: InitOptions): Promise<void> {
     { onCancel: () => process.exit(1) },
   );
 
-  const hubRemote = (opts.hub ?? answers.hubRemote).trim();
+  let hubRemote: string;
+  if (opts.createHub) {
+    hubRemote = await createGitHubHub(opts.createHub);
+  } else {
+    hubRemote = (opts.hub ?? answers.hubRemote).trim();
+  }
   const device = (opts.device ?? answers.device).trim();
 
   if (!DEVICE_NAME_PATTERN.test(device)) {
@@ -147,4 +165,62 @@ export async function initCommand(opts: InitOptions): Promise<void> {
   console.log(
     `  ${pc.cyan('handoff status')}                  ${pc.dim('— show sync state and known devices')}`,
   );
+}
+
+/**
+ * Create a private GitHub repo with the given name using the gh CLI, and
+ * return the HTTPS clone URL. Fails fast with an actionable message if gh
+ * isn't available, the user isn't authenticated, or the name is taken.
+ */
+async function createGitHubHub(name: string): Promise<string> {
+  try {
+    await execa('gh', ['--version']);
+  } catch {
+    throw new Error(
+      'gh CLI not found. Install from https://cli.github.com/ or create the hub manually and pass --hub <url>.',
+    );
+  }
+
+  const userResult = await execa('gh', ['api', 'user', '--jq', '.login'], { reject: false });
+  if (userResult.exitCode !== 0) {
+    throw new Error(
+      'Could not determine the active gh account. Run `gh auth login` / `gh auth switch` first.',
+    );
+  }
+  const owner = userResult.stdout.trim();
+  if (!owner) {
+    throw new Error('gh returned an empty username — re-authenticate with `gh auth login`.');
+  }
+
+  const slug = `${owner}/${name}`;
+  const existsResult = await execa('gh', ['repo', 'view', slug], { reject: false });
+  if (existsResult.exitCode === 0) {
+    console.log(
+      pc.yellow(
+        `⚠ ${slug} already exists on GitHub — reusing it. If that's not what you want, pick a different name.`,
+      ),
+    );
+  } else {
+    console.log(pc.dim(`Creating private repo ${slug} via gh…`));
+    const createResult = await execa(
+      'gh',
+      [
+        'repo',
+        'create',
+        name,
+        '--private',
+        '--description',
+        'Private hub for syncing Claude Code setup across devices via claude-handoff',
+      ],
+      { reject: false },
+    );
+    if (createResult.exitCode !== 0) {
+      throw new Error(
+        `gh repo create failed: ${createResult.stderr.trim() || createResult.stdout.trim() || 'unknown error'}`,
+      );
+    }
+    console.log(pc.green(`✓ created https://github.com/${slug}`));
+  }
+
+  return `https://github.com/${slug}.git`;
 }

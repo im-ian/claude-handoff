@@ -16,7 +16,8 @@ program
 program
   .command('init')
   .description('Register this device, or update an existing config. Prompts reuse current values as defaults.')
-  .option('--hub <url>', 'Hub repository URL')
+  .option('--hub <url>', 'Existing hub repository URL (git@ or https://)')
+  .option('--create-hub <name>', 'Create a NEW private GitHub repo with this name via `gh` and use it as the hub')
   .option('--device <name>', 'Device name (default: hostname on first init, current value on update)')
   .option('--force', 'On update: also reset scope, secretPolicy, and substitutions to defaults')
   .option('--skip-clone', 'Write config only; do not clone the hub (useful for dry-run setups)')
