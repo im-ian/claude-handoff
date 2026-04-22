@@ -64,7 +64,7 @@ git clone https://github.com/im-ian/claude-handoff.git && cd claude-handoff
 npm install && npm run build && npm link    # puts `handoff` on PATH
 ```
 
-Verify: `handoff --version` (→ `0.0.1`); `handoff status` returns `Not initialized` until you run `init`.
+Verify: `handoff --version` (→ `1.0.0`); `handoff status` returns `Not initialized` until you run `init`.
 
 **Uninstall:**
 

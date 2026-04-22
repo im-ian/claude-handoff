@@ -64,7 +64,7 @@ git clone https://github.com/im-ian/claude-handoff.git && cd claude-handoff
 npm install && npm run build && npm link    # `handoff`을 PATH에 추가
 ```
 
-검증: `handoff --version` (→ `0.0.1`); `init` 전에는 `handoff status`가 `Not initialized`를 반환하는 게 정상.
+검증: `handoff --version` (→ `1.0.0`); `init` 전에는 `handoff status`가 `Not initialized`를 반환하는 게 정상.
 
 **제거:**
 
