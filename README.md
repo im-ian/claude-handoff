@@ -10,7 +10,7 @@
 </picture>
 
 <p align="center">
-  Hand off your Claude Code setup between devices — sync <code>~/.claude/</code> across machines.
+  Hand off your Claude Code setup between devices — sync <code>~/.claude/</code> across machines, driven by slash commands.
 </p>
 
 ---
@@ -19,77 +19,92 @@
 
 Use Claude Code on multiple machines and you eventually copy `hooks.json` from your home Mac to your work Mac, only to watch every hook fail because `/Users/your-home-name/` doesn't exist under `/Users/your-work-name/`. `claude-handoff` tokenizes machine-specific paths so hooks Just Work, scans for secrets before anything leaves your machine, and supports N devices × M versions through a shared hub repository.
 
+Everything happens inside Claude Code via slash commands — no flag-chasing, no TTY hangs, no terminal gymnastics.
+
 ---
 
 ## Quick start
 
-```bash
-# 1. Plugin (inside Claude Code):
-#    /plugin marketplace add im-ian/claude-handoff
-#    /plugin install claude-handoff@claude-handoff
+Inside Claude Code:
 
-# 2. CLI (npm package pending):
-git clone https://github.com/im-ian/claude-handoff.git && cd claude-handoff
-npm install && npm run build && npm link
-
-# 3. Init — creates a PRIVATE GitHub hub repo for you:
-handoff init --create-hub my-claude-hub --device my-mac
-
-# 4. Push:
-handoff push
-
-# 5. On another machine after init + plugin install:
-handoff pull --from my-mac
+```
+/plugin marketplace add im-ian/claude-handoff
+/plugin install claude-handoff@claude-handoff
+/reload-plugins
 ```
 
-Or use `/handoff-init`, `/handoff-push`, `/handoff-pull` inside Claude Code — the slash commands drive prompts via `AskUserQuestion` and never hang on the CLI's TTY interactions.
+One-time terminal step (npm publish pending — see [Installation](#installation)):
+
+```bash
+git clone https://github.com/im-ian/claude-handoff.git && cd claude-handoff
+npm install && npm run build && npm link
+```
+
+Then back in Claude Code:
+
+```
+/handoff-init       # asks you a few questions, creates a PRIVATE GitHub hub repo
+/handoff-push       # snapshot ~/.claude/ to the hub
+```
+
+On another machine — after the same install + `/handoff-init`:
+
+```
+/handoff-pull       # pick the source device, preview diff, apply
+```
+
+Every slash command drives prompts through `AskUserQuestion` (device pickers, secret-scan policy, install confirmations) — no interactive CLI hangs, no flags to memorize.
 
 ---
 
 ## Installation
 
-**Plugin** (inside Claude Code):
+### 1. Plugin (inside Claude Code)
 
 ```
 /plugin marketplace add im-ian/claude-handoff
 /plugin install claude-handoff@claude-handoff
+/reload-plugins
 ```
 
-Updates ride through `/plugin update`. For local-symlink installs (contributors), run `plugin/install.sh` from a clone — symlinks track the repo so `git pull` picks up new commands.
+Updates ride through `/plugin update`.
 
-**CLI** (Node.js ≥ 20):
+### 2. `handoff` CLI backend
+
+The plugin is a thin wrapper — every slash command shells out to a `handoff` binary on your PATH. Until npm publish lands, install from source:
 
 ```bash
 git clone https://github.com/im-ian/claude-handoff.git && cd claude-handoff
-npm install && npm run build && npm link    # puts `handoff` on PATH
+npm install && npm run build && npm link
 ```
 
-Verify: `handoff --version` (→ `1.0.0`); `handoff status` returns `Not initialized` until you run `init`.
+Verify with `/handoff-status` inside Claude Code — if it runs without "command not found", you're set. In terminal, `handoff --version` prints `1.0.0`.
 
-**Uninstall:**
+### Uninstall
+
+```
+/plugin uninstall claude-handoff@claude-handoff
+```
 
 ```bash
-/plugin uninstall claude-handoff@claude-handoff   # plugin
-npm unlink -g @im-ian/claude-handoff              # CLI
-rm -rf ~/.claude-handoff                          # local config + hub clone (remote untouched)
+npm unlink -g @im-ian/claude-handoff   # CLI
+rm -rf ~/.claude-handoff               # local config + hub clone (remote untouched)
 ```
 
 ---
 
-## Commands
+## Slash commands
 
-| Slash | CLI | Purpose |
-|---|---|---|
-| `/handoff-init` | `handoff init [--hub <url> \| --create-hub <name>] --device <name>` | Register device, link or create a hub |
-| `/handoff-push` | `handoff push [--dry-run] [--skip-on-secrets \| --allow-secrets] [-m <msg>]` | Snapshot to hub (with secret scan) |
-| `/handoff-pull` | `handoff pull --from <device> [--dry-run] [--confirm]` | Apply another device's snapshot |
-| `/handoff-diff` | `handoff diff [--from <device>] [-p] [--files-only]` | Preview pull changes |
-| `/handoff-status` | `handoff status` | Sync state + known devices |
-| `/handoff-doctor` | `handoff doctor [--verbose] [--fix]` | Diagnose missing external deps referenced by hooks |
-| `/handoff-bootstrap` | `handoff bootstrap [--dry-run] [--yes]` | Install declared deps that are missing on this machine |
-| `/handoff-deps` | `handoff deps <add\|list\|remove> ...` | Manage this device's `dependencies.json` |
-
-`--help` on any subcommand for full flag listing.
+| Command | Purpose |
+|---|---|
+| `/handoff-init` | Register this device, link or create a hub repo. Interactively picks hub setup and device name. |
+| `/handoff-push` | Snapshot `~/.claude/` to the hub. Runs secret scan via `--dry-run` first; `AskUserQuestion` drives skip/allow/abort on findings. |
+| `/handoff-pull` | Apply another device's snapshot. Shows the device list, previews the diff, asks before overwriting. |
+| `/handoff-diff` | Preview what `pull` would change, without applying. |
+| `/handoff-status` | Show this device's registration, hub URL, and all known devices with last-push timestamps. |
+| `/handoff-doctor` | Diagnose missing external deps referenced by `hooks.json` — shows where each missing binary is used and how to install it. |
+| `/handoff-bootstrap` | Install declared deps that are missing on this machine. Always shows the plan and asks before executing. |
+| `/handoff-deps` | Manage the per-device `dependencies.json` (`add <name> --darwin "..." --linux "..."` / `list` / `remove`). |
 
 ---
 
@@ -124,25 +139,25 @@ So `"command": "node \"/Users/alice/.claude/hooks/x.js\""` becomes `"node \"${HA
 
 Every scoped text file (≤ 2 MB) is scanned for: Anthropic/OpenAI/GitHub/Google/AWS/Slack tokens, private key headers, JWTs, generic `password=` / `api_key=` literals.
 
-- **Interactive (terminal, TTY).** Per-file: *skip* / *upload anyway* / *abort*. Public/unknown-visibility hubs additionally require a typed `yes` confirmation.
-- **Non-interactive (CI, Bash tool, slash commands).** Pass `--skip-on-secrets` (auto-skip flagged files) or `--allow-secrets` (bypass entirely). The `/handoff-push` slash command drives this choice via `AskUserQuestion` after a `--dry-run` preflight surfaces findings.
+- **From `/handoff-push`.** A `--dry-run` preflight surfaces findings, then `AskUserQuestion` offers skip flagged / upload everything / abort. Public or unknown-visibility hubs get an extra warning.
+- **From the terminal, interactive.** Per-file prompt: *skip* / *upload anyway* / *abort*. Non-private hubs require a typed `yes` confirmation.
 - **False positives** (Django `SECRET_KEY` examples, test fixtures, password-pattern docs) → add file paths to `secretPolicy.allow` in config. Manual edits only — prevents click-fatigue from silently growing the list.
 
 ---
 
 ## Dependency management
 
-Hooks routinely invoke external CLIs (`gh`, `jq`, `clawd`, `rtk`, …). After a pull onto a fresh machine, those binaries may not be installed → hooks silently fail at runtime. Three commands handle this:
+Hooks invoke external CLIs (`gh`, `jq`, `clawd`, `rtk`, …). After a pull onto a fresh machine, those binaries may not be installed → hooks silently fail with `command not found`. Three slash commands address this:
 
-- **`handoff doctor`** — parses `hooks/hooks.json`, identifies non-system binaries, runs `command -v` for each, reports missing with file:line context and a suggested fix from the manifest.
-- **`handoff deps add <name> --darwin "<cmd>" --linux "<cmd>"`** — declare an install command in this device's manifest (`<hub>/devices/<name>/dependencies.json`). Auto-commits + pushes.
-- **`handoff bootstrap`** — reads the manifest, shows the install plan for missing deps, asks confirmation, executes (`shell: true`), re-verifies. Pull *never* installs anything; bootstrap is always explicit.
-
-```bash
-handoff deps add gh --darwin "brew install gh" --linux "apt install gh"
-handoff doctor       # confirm gh is now declared, check what else is missing
-handoff bootstrap    # install missing declared deps
 ```
+/handoff-deps add gh --darwin "brew install gh" --linux "apt install gh"
+/handoff-doctor            # confirm gh is declared; see what else is missing
+/handoff-bootstrap         # install missing declared deps (shows plan, asks first)
+```
+
+- **`/handoff-doctor`** — read-only scan of `hooks/hooks.json`. Shows missing binaries with file:line context and a suggested fix from the manifest.
+- **`/handoff-deps add/list/remove`** — edits the per-device manifest at `<hub>/devices/<name>/dependencies.json`. `add` and `remove` auto-commit and push.
+- **`/handoff-bootstrap`** — installs declared deps that aren't on PATH. Always prints the install plan first, always requires confirmation. Pull *never* auto-installs anything.
 
 v1 detects from `hooks/hooks.json` only; `scripts/**/*.sh` parsing comes in v1.1.
 
@@ -153,18 +168,19 @@ v1 detects from `hooks/hooks.json` only; `scripts/**/*.sh` parsing comes in v1.1
 ```
 <hub>/
 ├── devices/<name>/
-│   ├── snapshot/         # tokenized scoped files
-│   └── version.json      # timestamp, file count, byte count, host
-└── manifest.json         # registry of all devices
+│   ├── snapshot/            # tokenized scoped files
+│   ├── version.json         # timestamp, file count, byte count, host
+│   └── dependencies.json    # declared external deps for this device
+└── manifest.json            # registry of all devices
 ```
 
-One git commit on the hub = one push from one device. **N devices × M versions** emerges naturally from git history. No cross-device merging — `pull --from X` always applies X's complete snapshot atomically.
+One git commit on the hub = one push from one device. **N devices × M versions** emerges naturally from git history. No cross-device merging — `/handoff-pull --from X` always applies X's complete snapshot atomically.
 
 ---
 
 ## Configuration
 
-`~/.claude-handoff/config.json` — full schema in [`docs/DESIGN.md`](docs/DESIGN.md).
+`~/.claude-handoff/config.json` — full schema in [`docs/DESIGN.md`](docs/DESIGN.md). Most users never touch this file; `/handoff-init` writes a sensible default.
 
 ```json
 {
@@ -178,6 +194,12 @@ One git commit on the hub = one push from one device. **N devices × M versions*
 ```
 
 `CLAUDE_HANDOFF_HOME` env var overrides the config/hub location (default `~/.claude-handoff/`) — useful for safe trial runs (`CLAUDE_HANDOFF_HOME=/tmp/trial handoff init …`) and per-user isolation in shared environments.
+
+---
+
+## Terminal usage (optional)
+
+Every slash command is a thin wrapper around a matching `handoff <subcommand>` in your shell. If you prefer the terminal, `handoff init`, `handoff push`, `handoff pull --from <device>`, `handoff doctor`, etc. all work identically — same flags, same output. `handoff <cmd> --help` for the full flag listing.
 
 ---
 
@@ -199,7 +221,7 @@ One git commit on the hub = one push from one device. **N devices × M versions*
 
 **v1.0.0** — stable. Used in production across multiple devices. npm publish pending.
 
-**Roadmap:** `handoff log --device <name>`, `handoff pull --at <sha>`, auto credential-helper setup on `init`, `scripts/**/*.sh` parsing in `doctor`, npm release.
+**Roadmap:** `handoff log --device <name>`, `handoff pull --at <sha>`, auto credential-helper setup on `init`, `scripts/**/*.sh` parsing in `doctor`, SessionStart-hook integration (opt-in "soft handoff"), npm release.
 
 ---
 
@@ -208,7 +230,7 @@ One git commit on the hub = one push from one device. **N devices × M versions*
 - [`claude-teleport`](https://github.com/anthropics/claude-code-plugins) — one-shot beam, no per-device awareness.
 - Dotfile managers (`chezmoi`, `yadm`, `stow`) — general-purpose, require manual templating for path differences.
 
-`claude-handoff` is purpose-built for Claude Code: knows which pieces are machine-specific vs. portable, with defaults that keep secrets out.
+`claude-handoff` is purpose-built for Claude Code: knows which pieces are machine-specific vs. portable, defaults that keep secrets out, and a slash-command UX that never drops you into an interactive terminal flow.
 
 ---
 
